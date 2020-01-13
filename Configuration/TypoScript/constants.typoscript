@@ -1,0 +1,91 @@
+######################
+#### DEPENDENCIES ####
+######################
+<INCLUDE_TYPOSCRIPT: source="FILE:EXT:fluid_styled_content/Configuration/TypoScript/constants.txt">
+
+
+##############################
+#### FLUID STYLED CONTENT ####
+##############################
+styles {
+    templates {
+        layoutRootPath = EXT:ib_visonic/Resources/Private/Layouts/ContentElements/
+        partialRootPath = EXT:ib_visonic/Resources/Private/Partials/ContentElements/
+        templateRootPath = EXT:ib_visonic/Resources/Private/Templates/ContentElements/
+    }
+}
+
+
+############
+### PAGE ###
+############
+page >
+page {
+     fluidtemplate {
+        layoutRootPath = EXT:ib_visonic/Resources/Private/Layouts/Page/
+        partialRootPath = EXT:ib_visonic/Resources/Private/Partials/Page/
+        templateRootPath = EXT:ib_visonic/Resources/Private/Templates/Page/
+    }
+    meta {
+        description =
+        author =
+        keywords =
+        viewport = width=device-width, initial-scale=1
+        robots = index,follow
+        apple-mobile-web-app-capable = no
+        compatible = IE=edge
+    }
+    tracking {
+        google {
+            trackingID =
+            anonymizeIp = 1
+        }
+    }
+}
+
+
+##############
+### CONFIG ###
+##############
+config >
+config {
+    no_cache = 0
+    removeDefaultJS = 0
+    admPanel = 1
+    prefixLocalAnchors = all
+    headerComment = build by sitepackagebuilder.com
+    sendCacheHeaders = 1
+}
+
+
+#########################
+### ERIC YEE PACKAGE ###
+#########################
+plugin.ib_visonic {
+    settings {
+        # cat=ib visonic: advanced/190/100; type=boolean; label=Override LESS Variables: If enabled the variables defined in your LESS files will be overridden with the ones defined as TypoScript Constants.
+        overrideLessVariables = 1
+        # cat=ib visonic: advanced/190/110; type=boolean; label=CSS source mapping: Create a CSS source map useful to debug Less in browser developer tools. Note: CSS compression will be disabled.
+        cssSourceMapping = 0
+    }
+}
+
+####################################
+### ERIC YEE PACKAGE EXTENSIONS ###
+####################################
+plugin.ib_visonic {
+    view {
+        # cat=ib visonic: advanced/EricYeeExtensions/layoutRootPath; type=string; label=Layout Root Path: Path to layouts
+        layoutRootPath = EXT:ib_visonic/Resources/Private/Layouts/
+        # cat=ib visonic: advanced/EricYeeExtensions/partialRootPath; type=string; label=Partial Root Path: Path to partials
+        partialRootPath = EXT:ib_visonic/Resources/Private/Partials/
+        # cat=ib visonic: advanced/EricYeeExtensions/templateRootPath; type=string; label=Template Root Path: Path to templates
+        templateRootPath = EXT:ib_visonic/Resources/Private/Templates/
+    }
+}
+
+##########################################
+### ERIC YEE PACKAGE CONTENT ELEMENTS ###
+##########################################
+plugin.ib_visonic_contentelements {
+}

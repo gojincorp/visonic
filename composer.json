@@ -1,0 +1,28 @@
+{
+    "name": "ib/ib-visonic",
+    "type": "typo3-cms-extension",
+    "description": "Visonic Monitor Demo",
+    "authors": [
+        {
+            "name": "Eric Yee",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "typo3/cms-core": "^9.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Ib\\IbVisonic\\": "Classes"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Ib\\IbVisonic\\Tests\\": "Tests"
+        }
+    },
+    "replace": {
+        "ib/ib-visonic": "self.version",
+        "typo3-ter/ib-visonic": "self.version"
+    }
+}

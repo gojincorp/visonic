@@ -1,0 +1,48 @@
+{
+  "name": "ib_visonic",
+  "version": "1.0.0",
+  "description": "Visonic Monitoring Demo",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon -w Resources/Private/Powerlink/server Resources/Private/Powerlink/server/server.js",
+    "compile-old": "babel Resources/Private/Powerlink/src/ --presets=@babel/preset-react,@babel/preset-env --out-dir=Resources/Private/Powerlink/dist/",
+    "watch-old": "babel Resources/Private/Powerlink/src/ --presets=@babel/preset-react,@babel/preset-env --out-dir=Resources/Private/Powerlink/dist/ --watch --verbose",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "watch-dev-server": "webpack-dev-server --hot --inline"
+  },
+  "author": "Eric Yee",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "bootstrap": "^4.4.1",
+    "core-js": "^3.5.0",
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "jquery": "^3.4.1",
+    "mongodb": "^3.4.1",
+    "popper.js": "^1.16.0",
+    "prop-types": "^15.7.2",
+    "react": "^16.12.0",
+    "react-dom": "^16.12.0",
+    "regenerator-runtime": "^0.13.3",
+    "socket.io": "^2.3.0",
+    "whatwg-fetch": "^3.0.0"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.7.5",
+    "@babel/core": "^7.7.5",
+    "@babel/preset-env": "^7.7.6",
+    "@babel/preset-react": "^7.7.4",
+    "babel-loader": "^8.0.6",
+    "css-loader": "^3.4.2",
+    "nodemon": "^2.0.2",
+    "style-loader": "^1.1.2",
+    "webpack": "^4.41.5",
+    "webpack-cli": "^3.3.10",
+    "webpack-dev-middleware": "^3.7.2",
+    "webpack-dev-server": "^3.10.1",
+    "webpack-hot-middleware": "^2.25.0"
+  }
+}

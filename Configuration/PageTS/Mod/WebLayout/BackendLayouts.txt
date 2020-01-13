@@ -1,0 +1,4 @@
+#
+# BACKENDLAYOUTS
+#
+<INCLUDE_TYPOSCRIPT: source="DIR:EXT:ib_visonic/Configuration/PageTS/Mod/WebLayout/BackendLayouts" extensions="txt">

@@ -1,0 +1,227 @@
+######################
+#### DEPENDENCIES ####
+######################
+<INCLUDE_TYPOSCRIPT: source="FILE:EXT:fluid_styled_content/Configuration/TypoScript/setup.txt">
+
+
+##############
+#### PAGE ####
+##############
+page >
+page = PAGE
+page {
+	headTag (
+<head>
+<meta http-equiv="x-ua-compatible" content="ie=edge">
+	)
+}
+page {
+    typeNum = 0
+
+    10 = FLUIDTEMPLATE
+    10 {
+        # Template names will be generated automaticly by converting the applied
+        # backend_layout, there is no explicit mapping nessesary anymore.
+        #
+        # BackendLayout Key
+        # subnavigation_right_2_columns -> SubnavigationRight2Columns.html
+        #
+        # Backend Record
+        # uid: 1 -> 1.html
+        #
+        # Database Entry
+        # value: -1 -> None.html
+        # value: pagets__subnavigation_right_2_columns -> SubnavigationRight2Columns.html
+        templateName = TEXT
+        templateName {
+            cObject = TEXT
+            cObject {
+                data = pagelayout
+                required = 1
+                case = uppercamelcase
+                split {
+                    token = pagets__
+                    cObjNum = 1
+                    1.current = 1
+                }
+            }
+            ifEmpty = Default
+        }
+        templateRootPaths {
+            10 = EXT:bootstrap_package/Resources/Private/Templates/Page/
+            20 = EXT:ib_visonic/Resources/Private/Templates/Page/
+            30 = {$page.fluidtemplate.templateRootPath}
+        }
+        partialRootPaths {
+            10 = EXT:bootstrap_package/Resources/Private/Partials/Page/
+            20 = EXT:ib_visonic/Resources/Private/Partials/Page/
+            30 = {$page.fluidtemplate.partialRootPath}
+        }
+        layoutRootPaths {
+            10 = EXT:bootstrap_package/Resources/Private/Layouts/Page/
+            20 = EXT:ib_visonic/Resources/Private/Layouts/Page/
+            30 = {$page.fluidtemplate.layoutRootPath}
+        }
+        dataProcessing {
+            10 = TYPO3\CMS\Frontend\DataProcessing\FilesProcessor
+            10 {
+                references.fieldName = media
+            }
+            20 = TYPO3\CMS\Frontend\DataProcessing\MenuProcessor
+            20 {
+                levels = 2
+                includeSpacer = 1
+                as = mainnavigation
+            }
+        }
+    }
+
+    meta {
+        viewport = {$page.meta.viewport}
+        robots = {$page.meta.robots}
+        apple-mobile-web-app-capable = {$page.meta.apple-mobile-web-app-capable}
+        description = {$page.meta.description}
+        description {
+            override.field = description
+        }
+        author = {$page.meta.author}
+        author {
+            override.field = author
+        }
+        keywords = {$page.meta.keywords}
+        keywords {
+            override.field = keywords
+        }
+        
+        # Already included above...
+        #X-UA-Compatible = {$page.meta.compatible}
+        #X-UA-Compatible {
+        #    attribute = http-equiv
+        #}
+
+        # OpenGraph Tags
+        og:title {
+            attribute = property
+            field = title
+        }
+        og:site_name {
+            attribute = property
+            data = TSFE:tmpl|setup|sitetitle
+        }
+        og:description = {$page.meta.description}
+        og:description {
+            attribute = property
+            field = description
+        }
+        og:image {
+            attribute = property
+            stdWrap.cObject = FILES
+            stdWrap.cObject {
+                references {
+                    data = levelfield:-1, media, slide
+                }
+                maxItems = 1
+                renderObj = COA
+                renderObj {
+                    10 = IMG_RESOURCE
+                    10 {
+                        file {
+                            import.data = file:current:uid
+                            treatIdAsReference = 1
+                            width = 1280c
+                            height = 720c
+                        }
+                        stdWrap {
+                            typolink {
+                                parameter.data = TSFE:lastImgResourceInfo|3
+                                returnLast = url
+                                forceAbsoluteUrl = 1
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    includeCSSLibs {
+//        bootstrap_4_4_1 = EXT:ib_visonic/node_modules/bootstrap/dist/css/bootstrap.min.css
+    }
+
+    includeCSS {
+        main_css = EXT:ib_visonic/Resources/Public/Css/main.css
+    }
+
+    includeJSLibs {
+//        bable_polyfill_ext = https://cdnjs.cloudflare.com/ajax/libs/babel-polyfill/7.7.0/polyfill.js
+//        bable_polyfill_ext.external = 1
+//        prop_types_ext = https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.7.2/prop-types.min.js
+//        prop_types_ext.external = 1
+//        jquery_3_4_1 = EXT:ib_visonic/node_modules/jquery/dist/jquery.min.js
+//        bootstrap_4_4_1 = EXT:ib_visonic/node_modules/bootstrap/dist/js/bootstrap.min.js
+//        react_16_12_0 = EXT:ib_visonic/node_modules/react/umd/react.development.js
+//        react_dom_16_12_0 = EXT:ib_visonic/node_modules/react-dom/umd/react-dom.development.js
+//        whatwg_fetch = https://cdnjs.cloudflare.com/ajax/libs/fetch/3.0.0/fetch.min.js
+//        whatwg_fetch.type = module
+//        browserify_ext = https://cdnjs.cloudflare.com/ajax/libs/babel-core/6.1.19/browser.min.js
+//        browserify_ext.external = 1
+    }
+
+    includeJSFooterlibs {
+        //ib_visonic = EXT:ib_visonic/Resources/Public/js/main.js
+        ib_visonic_vendors = EXT:ib_visonic/Resources/Public/js/vendors.app.bundle.js
+        ib_visonic = EXT:ib_visonic/Resources/Public/js/app.bundle.js
+    }
+}
+
+lib.contentElement {
+	templateRootPaths {
+		5 = EXT:bootstrap_package/Resources/Private/Templates/ContentElements/
+	}
+	partialRootPaths {
+		5 = EXT:bootstrap_package/Resources/Private/Partials/ContentElements/
+	}
+	layoutRootPaths {
+		5 = EXT:bootstrap_package/Resources/Private/Layouts/ContentElements/
+	}
+}
+
+lib.fluidContent >
+
+################
+#### CONFIG ####
+################
+config >
+config {
+    absRefPrefix = auto
+    no_cache = {$config.no_cache}
+    uniqueLinkVars = 1
+    pageTitleFirst = 1
+    linkVars = L
+    prefixLocalAnchors = {$config.prefixLocalAnchors}
+    renderCharset = utf-8
+    metaCharset = utf-8
+    doctype = html5
+    removeDefaultJS = {$config.removeDefaultJS}
+    inlineStyle2TempFile = 1
+    admPanel = {$config.admPanel}
+    debug = 0
+    cache_period = 86400
+    sendCacheHeaders = {$config.sendCacheHeaders}
+    intTarget =
+    extTarget =
+    disablePrefixComment = 1
+    index_enable = 1
+    index_externals = 1
+    index_metatags = 1
+    headerComment = {$config.headerComment}
+
+    // Disable Image Upscaling
+    noScaleUp = 1
+
+    // Compression and Concatenation of CSS and JS Files
+    compressJs = 0
+    compressCss = 0
+    concatenateJs = 0
+    concatenateCss = 0
+}
