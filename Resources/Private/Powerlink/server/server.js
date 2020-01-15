@@ -1,10 +1,13 @@
 import express from 'express'
 import https from 'https'
+import axios from 'axios'
+import { parseStringPromise } from 'xml2js'
 import SourceMapSupport from 'source-map-support' // Source Maps
 import cors from 'cors'                 // Cross origin resource sharing
 import bodyParser from 'body-parser'    // Handler for processing req.body
-import { MongoClient } from 'mongodb'   // Database
-// import { ObjectId } from 'mongodb'
+import bodyParserXml from 'body-parser-xml'
+import { MongoClient, ObjectId } from 'mongodb'   // Database
+import mongoose from 'mongoose'
 import fs from 'fs'                     // File stream
 import 'core-js/stable'                 // Replacement for @babel/polyfill
 import 'regenerator-runtime/runtime'    // Replacement for @babel/polyfill
@@ -25,18 +28,7 @@ const options = {
 SourceMapSupport.install()
 
 let db
-
-/**
- * Initialize middleware
- **************************************************************************** */
 const app = express()
-app.use(cors())
-app.use(express.static('Resources/Private/Powerlink/static'))
-// app.use(express.static('Resources/Private/Powerlink/dist'))
-app.use(express.static('Resources/Public/js'))
-app.use(express.static('Resources/Public/src'))
-app.use(express.static('node_modules'))
-app.use(bodyParser.json())
 
 /**
  * Hot Module Replacement (HMR) and Webpack middleware for client side code.
@@ -56,6 +48,17 @@ if (process.env.NODE_ENV !== 'production') {
     app.use(webpackDevMiddleware(bundler, { noInfo: true }))
     app.use(webpackHotMiddleware(bundler, { log: console.log }))
 }
+
+/**
+ * Initialize middleware
+ **************************************************************************** */
+app.use(cors())
+app.use(express.static('Resources/Private/Powerlink/static'))
+// app.use(express.static('Resources/Private/Powerlink/dist'))
+app.use(express.static('Resources/Public/js'))
+app.use(express.static('Resources/Public/src'))
+app.use(express.static('node_modules'))
+app.use(bodyParser.json())
 
 /**
  * RESTful like API
@@ -92,16 +95,118 @@ app.post('/api/issues', (req, res) => {
         })
 })
 
-// Make connection to mongodb
-/*
-MongoClient.connect('mongodb://localhost/issuetracker', { useUnifiedTopology: true }, function(err, client) {
-    const db = client.db()
-    db.collection('issues').find().toArray(function(err, issues) {
-        console.log('Result of find:  ', issues)
-        client.close()
-    })
-})
-*/
+
+
+/**
+ * Supporting functions to facilitate Visonic Powerlink polling
+ **************************************************************************** */
+async function ajaxGet(url, query = {}) {
+    try {
+        console.log(`ajaxGet (${url}):  `, data, res.headers)
+        const res = await axios.get(url, { params: query })
+        const data = res.data
+    } catch (err) {
+        console.log(`ajaxGet (ERR${url}):  `, err)
+    }
+}
+
+async function ajaxPost(url, data = null, config = {}) {
+    try {
+        console.log(`ajaxPost (${url}):  `)
+        const res = await axios.post(url, data, { ...config, withCredentials: true, ...((visonicCookie ? { headers: { Cookie: visonicCookie } } : null)) })
+        //const data = res.data
+        return res
+    } catch (err) {
+        console.log(`ajaxPost (ERR/${url}):  `, err.message)
+        //res.status(500).json({ message: `Internal Server Error:  ${err}` })
+        throw err
+    }
+}
+
+function _delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function _poll(fn, interval = 5000, retries = Infinity) {
+    console.log('_poll START')
+    return Promise.resolve()
+        .then(fn)
+        .catch(function retry(err) {
+            console.log(`_poll ERR (retry):  `, err)
+            if (retries-- > 0)
+                return _delay(interval)
+                    .then(fn)
+                    .catch(retry)
+            throw err
+        })
+}
+
+function _login(cb = null) {
+    ajaxPost(cmdLogin, `user=${visonicUser}&pass=${visonicPwd}`, { 'content-type': 'application/x-www-form-urlencoded' })
+        .then ((result) => {
+            console.log("Authenticated by Visonic...", result.headers['set-cookie'])
+            if (cb) cb()
+        })
+}
+
+function _checkStatus(cb = null) {
+    ajaxGet(cmdStatus)
+        .then ((result) => {
+            console.log("Authenticated by Visonic...", result.headers['set-cookie'])
+            if (cb) cb()
+        })
+}
+
+function pollVisonic() {
+    const relogin = /\[RELOGIN\]/
+    const sessionIdMatchStr = /PowerLink=([^;]*)/
+    _poll(() =>
+        ajaxPost(cmdStatus, querystring.stringify(sessionData), { header: { 'content-type': 'application/x-www-form-urlencoded' } })
+        .then ((result) => {
+            // Check if we need to relogin...
+            if (relogin.test(result.data)) {
+                console.log("pollVisonic->throw(:  Login failed...")
+                throw new Error('Login Failed')
+            }
+            else {
+                console.log("pollVisonic (cmdStatus):  Successful...")
+                return parseStringPromise(result.data)
+            }
+        })
+        .then(jsonData => {
+            console.log(`pollVisonic (parseStringPromise):  Successful...`, jsonData)
+            // Track update index
+            sessionData.curindex = jsonData.reply.index
+            return _delay(5000)
+        })
+        .then(pollVisonic)
+        .catch(err => {
+            console.log(`pollVisonic (catch::err):  ${err.message}`)
+            switch(err.message) {
+            case 'Login Failed':
+                _poll(() =>
+                    ajaxPost(cmdLogin,`user=${visonicUser}&pass=${visonicPwd}`,{ header: { 'content-type': 'application/x-www-form-urlencoded' } })
+                    .then ((result) => {
+                        console.log("Authenticated by Visonic...", result.headers['set-cookie'][0])
+                        visonicCookie = result.headers['set-cookie'][0]
+                        visonicSessionId = visonicCookie.match(sessionIdMatchStr)[1]
+                        sessionData.sesid = visonicSessionId
+                        return _delay(5000)
+                    })
+                    .then(pollVisonic),
+                    5000) 
+                break
+            default:
+                pollVisonic()
+                break
+            }
+        }),
+        5000)
+}
+
+/**
+ * Connect to mongodb and then start server
+ **************************************************************************** */
 MongoClient.connect('mongodb://localhost/issuetracker', { useUnifiedTopology: true }).then(client => {
     db = client.db()
 

@@ -51,3 +51,14 @@ Modifcations from default Extension Builder bootstrap project:
 ./Resources/Private/Language/locallang_be.xlf => New file for backend layout labels<br>
 ./Resources/Private/Layouts/Page => New directory for page layouts<br>
 ./Resources/Private/Templates/Page => New directory for page templates<br>
+
+AJAX call from admin panel GUI to PowerLink:
+
+[POST] http://192.168.2.200/web/ajax/alarm.chkstatus.ajax.php // [NOCNG] === no change<br>
+[POST] http://192.168.2.200/web/ajax/system.autologout.ajax.php<br>
+[POST] http://192.168.2.200/web/ajax/setup.network.load.ajax.php<br>
+
+AJAX call from Powerlink to proxy call center:
+
+[POST] http://192.168.2.229:8080/scripts/notify.php<br>
+[GET] http://192.168.2.229:8080/update.php?serial&id&account&ver\_hw&ver\_sw&ver\_var&upgrade\_status&configuration_status
