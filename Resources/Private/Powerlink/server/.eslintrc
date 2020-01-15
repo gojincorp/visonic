@@ -1,0 +1,10 @@
+{
+    "env": {
+        "node": true,
+    },
+    "rules": {
+        "global-require": ["off"],
+        "arrow-parens": ["off"],
+        "no-console": ["off"],
+    },
+}
