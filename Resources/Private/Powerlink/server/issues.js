@@ -1,12 +1,10 @@
-'use strict'
-
 const validIssueStatus = {
     New: true,
     Open: true,
     Assigned: true,
     Fixed: true,
     Verified: true,
-    Closed: true
+    Closed: true,
 }
 
 const issueFieldType = {
@@ -15,26 +13,24 @@ const issueFieldType = {
     effort: 'optional',
     created: 'required',
     completionDate: 'optional',
-    title: 'required'
+    title: 'required',
 }
 
 function validateIssue(issue) {
-    for (const field in issueFieldType) {
-        const type = issueFieldType[field]
-        if (!type) {
-            delete issue[field]
-        } else if (type === 'required' && !issue[field]) {
-            return `${field} is required...test`
+    const errors = []
+    Object.entries(issueFieldType).forEach(([fieldName, fieldType]) => {
+        if (fieldType === 'required' && !issue[fieldName]) {
+            errors.push(`Missing required field:  ${fieldName}`)
         }
-    }
-    
+    })
+
     if (!validIssueStatus[issue.status]) {
-        return `${issue.status} is not a valid status...`
+        errors.push(`${issue.status} is not a valid status.`)
     }
-    
-    return null
+
+    return (errors.length ? errors.join('; ') : null)
 }
 
-module.exports = {
-    validateIssue
+export default {
+    validateIssue,
 }

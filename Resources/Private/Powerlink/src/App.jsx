@@ -17,3 +17,4 @@ ReactDOM.render(<IssueList />, contentNode)
 if (module.hot) {
     module.hot.accept()
 }
+//TEST

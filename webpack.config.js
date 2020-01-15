@@ -3,11 +3,12 @@ const fs = require('fs')
 
 module.exports = {
     mode: 'development',
+    devtool: 'source-map',
     resolve: {
         extensions: ['.js', '.jsx'],
     },
     entry: {
-        main: ['./Resources/Private/Powerlink/src/App.jsx'],
+        main: ['./src/App.jsx'],
     },
     output: {
         path: path.join(__dirname, 'Resources/Public/js'),
@@ -67,12 +68,12 @@ module.exports = {
         index: '',
         https: {
             key: fs.readFileSync('/Users/ibserveradmin/letsencrypt/config/live/visonic.ideasbeyond.com/privkey.pem'),
-            cert: fs.readFileSync('/Users/ibserveradmin/letsencrypt/config/live/visonic.ideasbeyond.com/cert.pem')
+            cert: fs.readFileSync('/Users/ibserveradmin/letsencrypt/config/live/visonic.ideasbeyond.com/cert.pem'),
         },
         proxy: {
             '**': {
                 target: 'https://localhost:3000',
-                secure: false
+                secure: false,
             },
         },
     },

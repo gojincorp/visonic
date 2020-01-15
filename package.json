@@ -5,12 +5,18 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon -w Resources/Private/Powerlink/server Resources/Private/Powerlink/server/server.js",
-    "compile-old": "babel Resources/Private/Powerlink/src/ --presets=@babel/preset-react,@babel/preset-env --out-dir=Resources/Private/Powerlink/dist/",
-    "watch-old": "babel Resources/Private/Powerlink/src/ --presets=@babel/preset-react,@babel/preset-env --out-dir=Resources/Private/Powerlink/dist/ --watch --verbose",
+    "start-src": "nodemon -w Resources/Private/Powerlink/server Resources/Private/Powerlink/server/server.js",
+    "start-dist": "nodemon -w Resources/Private/Powerlink/dist Resources/Private/Powerlink/dist/server.js",
+    "start": "nodemon -w Resources/Private/Powerlink/server Resources/Private/Powerlink/server/start_bootstrap.js",
+    "lint": "eslint --ext js,jsx src Resources/Private/Powerlink/server webpack.config.js",
+    "lint-fix": "eslint --fix --ext js,jsx src Resources/Private/Powerlink/server webpack.config.js",
     "compile": "webpack",
     "watch": "webpack --watch",
-    "watch-dev-server": "webpack-dev-server --hot --inline"
+    "watch-dev-server": "webpack-dev-server --hot --inline",
+    "compile-server": "babel Resources/Private/Powerlink/server/ --out-dir=Resources/Private/Powerlink/dist/ --source-maps",
+    "compile-old": "babel Resources/Private/Powerlink/src/ --presets=@babel/preset-react,@babel/preset-env --out-dir=Resources/Private/Powerlink/dist/",
+    "watch-old": "babel Resources/Private/Powerlink/src/ --presets=@babel/preset-react,@babel/preset-env --out-dir=Resources/Private/Powerlink/dist/ --watch --verbose",
+    "compile-server-old": "babel Resources/Private/Powerlink/server/ --presets=@babel/preset-env --out-dir=Resources/Private/Powerlink/dist/"
   },
   "author": "Eric Yee",
   "license": "ISC",
@@ -28,21 +34,29 @@
     "react-dom": "^16.12.0",
     "regenerator-runtime": "^0.13.3",
     "socket.io": "^2.3.0",
-    "whatwg-fetch": "^3.0.0"
+    "source-map-support": "^0.5.16",
+    "whatwg-fetch": "^3.0.0",
+    "webpack": "^4.41.5",
+    "webpack-dev-middleware": "^3.7.2",
+    "webpack-hot-middleware": "^2.25.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.7.5",
     "@babel/core": "^7.7.5",
     "@babel/preset-env": "^7.7.6",
     "@babel/preset-react": "^7.7.4",
+    "@babel/register": "^7.8.3",
     "babel-loader": "^8.0.6",
     "css-loader": "^3.4.2",
+    "eslint": "^6.8.0",
+    "eslint-config-airbnb": "^18.0.1",
+    "eslint-plugin-import": "^2.20.0",
+    "eslint-plugin-jsx-a11y": "^6.2.3",
+    "eslint-plugin-react": "^7.17.0",
+    "eslint-plugin-react-hooks": "^2.3.0",
     "nodemon": "^2.0.2",
     "style-loader": "^1.1.2",
-    "webpack": "^4.41.5",
     "webpack-cli": "^3.3.10",
-    "webpack-dev-middleware": "^3.7.2",
-    "webpack-dev-server": "^3.10.1",
-    "webpack-hot-middleware": "^2.25.0"
+    "webpack-dev-server": "^3.10.1"
   }
 }

@@ -4,10 +4,10 @@ require('@babel/register')({
             '@babel/preset-env',
             {
                 targets: {
-                    node: "current",
+                    node: 'current',
                 },
-                useBuiltIns: "usage",
-                corejs: "3.5.0"
+                useBuiltIns: 'usage',
+                corejs: '3.5.0',
             },
         ],
     ],
