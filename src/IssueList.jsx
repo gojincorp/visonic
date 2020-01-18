@@ -146,7 +146,7 @@ export default class IssueList extends React.Component {
     }
     */
     loadData() {
-        fetch('https://visonic.ideasbeyond.com:8080/api/issues').then(response => {
+        fetch('https://visonic.ideasbeyond.com:8430/api/issues').then(response => {
             if (response.ok) {
                 response.json().then(data => {
                     // console.log(`Total count of records:  ${data._metadata.total_count}`)
@@ -178,7 +178,7 @@ export default class IssueList extends React.Component {
     */
     createIssue(newIssue) {
         const { issues } = this.state
-        fetch('https://visonic.ideasbeyond.com:8080/api/issues', {
+        fetch('https://visonic.ideasbeyond.com:8430/api/issues', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newIssue),
