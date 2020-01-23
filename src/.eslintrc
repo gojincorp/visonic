@@ -4,6 +4,8 @@
     },
     "rules": {
         "no-alert": ["off"],
-        "arrow-parens": ["off"]
+        "arrow-parens": ["off"],
+        "no-console": ["off"],
+        "no-underscore-dangle": ["off"],
     },
 }

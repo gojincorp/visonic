@@ -17,8 +17,8 @@ import Issue from './issues'         // Custom module
 /**
  * Initialize constants
  **************************************************************************** */
-const appHttps = express() // External facing secure web server
-const appHttp = express() // Internal facing insecure web server
+const appHttps = express() // External facing secure client web server
+const appHttp = express() // Internal facing insecure Visonic proxy web server
 const visonicIp = '192.168.2.200'
 const visonicUser = 'ibvadmin'
 const visonicPwd = 'blgn5w5ojk'
@@ -145,6 +145,16 @@ appHttp.use(bodyParser.xml())
 /**
  * RESTful like API (HTTPS)
  **************************************************************************** */
+appHttps.get('/api/pinglog', (req, res) => {
+    Powerlink.findOne()
+        .then(doc => {
+            res.json(doc)
+        })
+        .catch(err => {
+            console.log(`Error:  ${err}`)
+            res.status(500).json({ message: `Internal Server Error: ${err}` })
+        })
+})
 appHttps.get('/api/issues', (req, res) => {
     db.collection('issues').find().toArray()
         .then(issues => {
@@ -178,6 +188,10 @@ appHttps.post('/api/issues', (req, res) => {
 /**
  * RESTful like API (HTTP)
  **************************************************************************** */
+
+//
+// General ping from Powerlink module
+// ----------------------------------
 appHttp.get('/scripts/update.php*', (req, res) => {
     const logDate = new Date()
 
@@ -185,7 +199,6 @@ appHttp.get('/scripts/update.php*', (req, res) => {
     Powerlink.findOne({ serial: req.query.serial })
         .then(doc => {
             if (doc) {
-                console.log('findOne (true):  ', doc)
                 const log = doc.logDates.get(logDate.toLocaleDateString())
                 if (log === undefined) {
                     // log.logHrs.get(`${logDate.getHours()}`).logMins.set(`${logDate.getMinutes()}`, true)
@@ -200,7 +213,6 @@ appHttp.get('/scripts/update.php*', (req, res) => {
                 }
                 doc.save()
             } else {
-                console.log('findOne (false):  ', doc)
                 const newPowerlink = new Powerlink({
                     ...req.query,
                     timestamp: logDate,
@@ -257,19 +269,32 @@ async function ajaxPost(url, data = null, config = {}) {
     }
 }
 
+/**
+ * Internal delay function that returns a promise
+ * 
+ * @param {number} ms - milliseconds
+ * @return {promise} Promise object after ms time has passed
+ */
 function _delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-function _poll(fn, interval = 5000, retries = Infinity) {
+/**
+ * Internal polling function
+ * 
+ * @callback function to use during polling cycle
+ * @param {number} interval - polling interval
+ * @param {number} [retries=Infinity] - number of retries for the callback function
+ */
+function _poll(cb, interval = 5000, retries = Infinity) {
     console.log('_poll START')
     return Promise.resolve()
-        .then(fn)
+        .then(cb)
         .catch(function retry(err) {
             console.log(`_poll ERR (retry):  `, err)
             if (retries-- > 0) {
                 return _delay(interval)
-                    .then(fn)
+                    .then(cb)
                     .catch(retry)
             }
             throw err
@@ -293,12 +318,17 @@ function _checkStatus(cb = null) {
 }
 
 function pollVisonic() {
-    const relogin = /\[RELOGIN\]/
-    const sessionIdMatchStr = /PowerLink=([^;]*)/
+    //
+    // List of regular expressions for parsing response from Powerlink
+    // ---------------------------------------------------------------
+    const reloginRegex = /\[RELOGIN\]/
+    const sessionIdRegex = /PowerLink=([^;]*)/
+
+        
     _poll(() => ajaxPost(cmdStatus, querystring.stringify(sessionData), { header: { 'content-type': 'application/x-www-form-urlencoded' } })
         .then((result) => {
             // Check if we need to relogin...
-            if (relogin.test(result.data)) {
+            if (reloginRegex.test(result.data)) {
                 console.log('pollVisonic->throw(:  Login failed...')
                 throw new Error('Login Failed')
             } else {
@@ -329,7 +359,7 @@ function pollVisonic() {
                     .then((result) => {
                         console.log('Authenticated by Visonic...', result.headers['set-cookie'][0])
                         visonicCookie = result.headers['set-cookie'][0]
-                        visonicSessionId = visonicCookie.match(sessionIdMatchStr)[1]
+                        visonicSessionId = visonicCookie.match(sessionIdRegex)[1]
                         sessionData.sesid = visonicSessionId
                         return _delay(5000)
                     })

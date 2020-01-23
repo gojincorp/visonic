@@ -5,12 +5,12 @@ import 'bootstrap'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import React from 'react'
 import ReactDOM from 'react-dom'
-import IssueList from './IssueList' // Custom module
+import HealthMonitor from './HealthMonitor' // Custom module
 
 $(() => {
     const contentNode = $('#contents')[0]
 
-    ReactDOM.render(<IssueList />, contentNode)
+    ReactDOM.render(<HealthMonitor />, contentNode)
 })
 
 if (module.hot) {

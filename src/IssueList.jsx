@@ -98,7 +98,7 @@ function IssueTable({ issues }) {
         <table className="bordered-table">
             <thead>
                 <tr>
-                    <th>Id Test</th>
+                    <th>Id</th>
                     <th>Status</th>
                     <th>Owner</th>
                     <th>Created</th>
