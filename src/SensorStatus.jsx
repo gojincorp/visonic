@@ -9,7 +9,7 @@ moment().format()
  * Initialize constants
  **************************************************************************** */
 const baseUrl = 'https://visonic.ideasbeyond.com:8430'
-const cmdPingLog = `${baseUrl}/api/pinglog`
+const cmdPingLog = `${baseUrl}/api/allstats`
 let myChart
 
 export default class PingLog extends React.Component {
@@ -22,12 +22,12 @@ export default class PingLog extends React.Component {
      ************************************************************************ */
     componentDidMount() {
         // Initialize chart
-        const pingLog = document.getElementById('pingLogChart').getContext('2d')
+        const pingLog = document.getElementById('sensorStatusChart').getContext('2d')
         myChart = new Chart(pingLog, {
             type: 'line',
             data: {
                 datasets: [{
-                    label: 'Visonic Ping Status',
+                    label: 'Visonic Sensor Status',
                     data: [],
                     steppedLine: true,
                     pointRadius: 3,
@@ -130,6 +130,7 @@ export default class PingLog extends React.Component {
         let currentMoment
         PingLog._poll(() => PingLog.ajaxGet(cmdPingLog)
             .then((data) => {
+                console.log('_poll AllStats:  ', data)
                 const pingLogData = []
                 Object.keys(data.sampleTime).forEach(time => {
                     if (((data.sampleTime[time].srcId || {})[0] || {}).pinged) {
@@ -169,7 +170,7 @@ export default class PingLog extends React.Component {
                     x: currentMoment,
                     y: 1,
                 })
-                console.log('pollPinglog:  Successful...', pingLogData)
+                console.log('pollAllStats:  Successful...', pingLogData)
 
                 myChart.data.datasets[0].data = pingLogData
                 myChart.update()
@@ -185,7 +186,7 @@ export default class PingLog extends React.Component {
 
     render() {
         return (
-            <canvas id="pingLogChart" width={800} height={400} style={{ width: '800px', height: '400px' }} />
+            <canvas id="sensorStatusChart" width={800} height={400} style={{ width: '800px', height: '400px' }} />
         )
     }
 }

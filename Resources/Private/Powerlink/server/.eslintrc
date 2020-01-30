@@ -8,6 +8,7 @@
         "no-console": ["off"],
         "camelcase": ["error", {"allow": ["_id", "ver_hw", "ver_sw", "ver_var", "upgrade_status", "configuration_status"]}],
         "no-underscore-dangle": ["off"],
-        "quotes": ["error", "single", { "allowTemplateLiterals": true }]
+        "quotes": ["error", "single", { "allowTemplateLiterals": true }],
+        "no-trailing-spaces": ["error", { "ignoreComments": true }],
     },
 }

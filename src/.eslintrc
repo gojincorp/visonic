@@ -7,5 +7,6 @@
         "arrow-parens": ["off"],
         "no-console": ["off"],
         "no-underscore-dangle": ["off"],
+        "no-trailing-spaces": ["error", { "ignoreComments": true }],
     },
 }

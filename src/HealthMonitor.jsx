@@ -4,6 +4,7 @@ import PropTypes from 'prop-types'
 import IssueAdd from './IssueAdd'
 import IssueFilter from './IssueFilter'
 import PingLog from './PingLog'
+import SensorStatus from './SensorStatus'
 
 export default class HealthMonitor extends React.Component {
     constructor() {
@@ -19,6 +20,8 @@ export default class HealthMonitor extends React.Component {
         return (
             <div>
                 <PingLog />
+                <hr />
+                <SensorStatus />
             </div>
         )
     }

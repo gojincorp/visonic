@@ -22,6 +22,7 @@ const appHttp = express() // Internal facing insecure Visonic proxy web server
 const visonicIp = '192.168.2.200'
 const visonicUser = 'ibvadmin'
 const visonicPwd = 'blgn5w5ojk'
+const visonicSerial = 2710015066
 const baseUrl = `http://${visonicIp}`
 const cmdLogin = `${baseUrl}/web/ajax/login.login.ajax.php`
 // const cmdLogout = `${baseUrl}/web/login.php?act=logout`
@@ -41,6 +42,7 @@ const sessionData = {
     sesid: visonicSessionId,
     sesusername: visonicUser,
     sesusermanager: 99,
+    serial: visonicSerial,
 }
 let db
 
@@ -48,16 +50,30 @@ let db
  * MongoDB Schemas
  **************************************************************************** */
 const { Schema } = mongoose
-/*
-const sensorSchema = new Schema({
-    zone: Number,
-    loc: String,
-    type: String,
-    status: Boolean,
+const systemConfigSchema = new Schema({
+    serial: Number,
+    id: String,
+    account: String,
+    ver_hw: String,
+    ver_sw: String,
+    ver_var: String,
+    upgrade_status: Number,
+    configuration_status: Number,
+    sensorId: {
+        type: Map, // <zone>
+        of: {
+            _id: false,
+            zone: Number,
+            loc: String,
+            type: String,
+            chime: String,
+            status: String,
+            isalarm: Boolean,
+        },
+    },
 })
-const Sensor = mongoose.model('Sensor', sensorSchema)
-*/
-const powerlinkSchema = new Schema({
+const SystemConfig = mongoose.model('SystemConfig', systemConfigSchema)
+const systemLogSchema = new Schema({
     serial: Number,
     id: String,
     account: String,
@@ -86,8 +102,26 @@ const powerlinkSchema = new Schema({
             },
         },
     },
+    created: Date, // timestamp without time
+    first: Number,
+    last: Number,
+    sampleTime: {
+        type: Map, // <time>
+        of: {
+            _id: false,
+            srcId: {
+                type: Map, // <panel|zone>
+                of: {
+                    _id: false,
+                    pinged: Boolean,
+                    status: String,
+                },
+            },
+        },
+    },
+    sampleCnt: Number,
 })
-const Powerlink = mongoose.model('Powerlink', powerlinkSchema)
+const SystemLog = mongoose.model('SystemLog', systemLogSchema)
 
 /**
  * Misc Bootstrap code
@@ -145,8 +179,24 @@ appHttp.use(bodyParser.xml())
 /**
  * RESTful like API (HTTPS)
  **************************************************************************** */
+appHttps.get('/api/allstats', (req, res) => {
+    SystemLog.find()
+        .then(docs => {
+            const finalDoc = docs.reduce((tempDoc, doc) => {
+                tempDoc.last = doc.last
+                tempDoc.sampleCnt += doc.sampleCnt
+                tempDoc.sampleTime = new Map([...tempDoc.sampleTime, ...doc.sampleTime])
+                return tempDoc
+            })
+            res.json(finalDoc)
+        })
+        .catch(err => {
+            console.log(`Error:  ${err}`)
+            res.status(500).json({ message: `Internal Server Error: ${err}` })
+        })
+})
 appHttps.get('/api/pinglog', (req, res) => {
-    Powerlink.findOne()
+    SystemLog.findOne()
         .then(doc => {
             res.json(doc)
         })
@@ -186,53 +236,78 @@ appHttps.post('/api/issues', (req, res) => {
 })
 
 /**
- * RESTful like API (HTTP)
+ * HTTP based RESTful API for handling requests from Powerlink module
  **************************************************************************** */
 
 //
 // General ping from Powerlink module
 // ----------------------------------
 appHttp.get('/scripts/update.php*', (req, res) => {
-    const logDate = new Date()
+    const logDate = new Date(new Date().setMilliseconds(0))
+    sessionData.serial = req.query.serial
 
-    // Check for existing document
-    Powerlink.findOne({ serial: req.query.serial })
-        .then(doc => {
-            if (doc) {
-                const log = doc.logDates.get(logDate.toLocaleDateString())
-                if (log === undefined) {
-                    // log.logHrs.get(`${logDate.getHours()}`).logMins.set(`${logDate.getMinutes()}`, true)
-                    doc.logDates.set(logDate.toLocaleDateString(), { logHrs: new Map([[`${logDate.getHours()}`, { logMins: new Map([[`${logDate.getMinutes()}`, { pinged: true }]]) }]]) })
-                } else {
-                    const logHr = log.logHrs.get(`${logDate.getHours()}`)
-                    if (logHr === undefined) {
-                        log.logHrs.set(`${logDate.getHours()}`, { logMins: new Map([[`${logDate.getMinutes()}`, { pinged: true }]]) })
-                    } else {
-                        logHr.set({ logMins: new Map([[`${logDate.getMinutes()}`, { pinged: true }]]) })
-                    }
-                }
-                doc.save()
-            } else {
-                const newPowerlink = new Powerlink({
-                    ...req.query,
-                    timestamp: logDate,
-                    // ping: new Map([[logDate.toLocaleDateString(), {time: new Map([[`${logDate.getHours()}`, new Map([[`${logDate.getMinutes()}`, true]])]])}]]),
-                    logDates: new Map([[logDate.toLocaleDateString(), { logHrs: new Map([[`${logDate.getHours()}`, { logMins: new Map([[`${logDate.getMinutes()}`, { pinged: true }]]) }]]) }]]),
-                })
-                newPowerlink.save()
-            }
+    SystemConfig.updateOne({
+        serial: sessionData.serial,
+    },
+    {
+        $set: {
+            ...req.query,
+        },
+    },
+    {
+        upsert: true,
+    })
+        .then(results => {
+            console.log('Powerlink Resful API (GET: /scripts/update.php*):  System config...', typeof results)
         })
-        .catch(err => console.log('Error:  ', err))
+
+    SystemLog.updateOne({
+        serial: sessionData.serial,
+        created: new Date(logDate.toLocaleDateString()),
+        sampleCnt: { $lt: 10000 },
+    },
+    {
+        $setOnInsert: {
+            ...req.query,
+        },
+        $set: {
+            [`sampleTime.${logDate.getTime()}.srcId.0.pinged`]: true,
+        },
+        $inc: { sampleCnt: 1 },
+        $min: { first: logDate },
+        $max: { last: logDate },
+    },
+    {
+        upsert: true,
+    })
+        .then(results => {
+            console.log('Powerlink Resful API (GET: /scripts/update.php*):  System logs...', typeof results)
+        })
 
     res.send('status=0&ka_time=50&allow=0&\n')
 })
 
+//
+// Catch all GET handler
+// ---------------------
 appHttp.get('/scripts/*', (req, res) => {
-    console.log('Visonic GET (/scripts/*):  ')
+    console.log('Powerlink Resful API (GET: /scripts/*):  ', typeof req, typeof res)
 })
 
+//
+// Notification alert from Powerlink module
+// ----------------------------------
+appHttp.post('/scripts/notify.php', (req, res) => {
+    console.log('Visonic POST (/scripts/notify.php):  ', req.body.notify.index[0], req.body.notify)
+    res.type('application/xml')
+    res.send(`<response><index>${req.body.notify.index[0]}</index></response>`)
+})
+
+//
+// Catch all POST handler
+// ---------------------
 appHttp.post('/scripts/*', (req, res) => {
-    console.log('Visonic POST (/scripts/*):  ', req.body)
+    console.log('Powerlink Resful API (POST: /scripts/*):  ', typeof req, typeof res)
 })
 
 /**
@@ -283,11 +358,11 @@ function _delay(ms) {
  * Internal polling function
  * 
  * @callback function to use during polling cycle
- * @param {number} interval - polling interval
+ * @param {number} [interval=5000] - polling interval
  * @param {number} [retries=Infinity] - number of retries for the callback function
  */
 function _poll(cb, interval = 5000, retries = Infinity) {
-    console.log('_poll START')
+    //console.log('_poll START')
     return Promise.resolve()
         .then(cb)
         .catch(function retry(err) {
@@ -301,46 +376,124 @@ function _poll(cb, interval = 5000, retries = Infinity) {
         })
 }
 
-function _login(cb = null) {
-    ajaxPost(cmdLogin, `user=${visonicUser}&pass=${visonicPwd}`, { 'content-type': 'application/x-www-form-urlencoded' })
-        .then((result) => {
-            console.log('Authenticated by Visonic...', result.headers['set-cookie'])
-            if (cb) cb()
-        })
-}
-
-function _checkStatus(cb = null) {
-    ajaxGet(cmdStatus)
-        .then((result) => {
-            console.log('Authenticated by Visonic...', result.headers['set-cookie'])
-            if (cb) cb()
-        })
-}
-
+/**
+ * Main polling function
+ */
 function pollVisonic() {
     //
     // List of regular expressions for parsing response from Powerlink
     // ---------------------------------------------------------------
-    const reloginRegex = /\[RELOGIN\]/
-    const sessionIdRegex = /PowerLink=([^;]*)/
+    const reloginRegex = /\[RELOGIN\]/          // Must login again
+    const noChangeRegex = /\[NOCNG\]/           // No change
+    const sessionIdRegex = /PowerLink=([^;]*)/  // Session ID
 
-        
     _poll(() => ajaxPost(cmdStatus, querystring.stringify(sessionData), { header: { 'content-type': 'application/x-www-form-urlencoded' } })
         .then((result) => {
-            // Check if we need to relogin...
             if (reloginRegex.test(result.data)) {
-                console.log('pollVisonic->throw(:  Login failed...')
+            // System is not logged on...
                 throw new Error('Login Failed')
             } else {
-                console.log('pollVisonic (cmdStatus):  Successful...')
+            // Proceed to parse XML to JS object
                 return parseStringPromise(result.data)
             }
         })
-        .then(jsonData => {
-            console.log(`pollVisonic (parseStringPromise):  Successful...`, jsonData)
+        .then(jsObj => {
+            // Must exit if no Powerlink serial number
+            if (!sessionData.serial) {
+                console.log('Polling:  Powerlink serial number is missing...')
+                return _delay(1000)
+            }
+
+            const sampleDate = new Date(new Date().setMilliseconds(0))
+            const sampleTime = sampleDate.getTime()
+
+            if (jsObj.reply.customStatus && noChangeRegex.test(jsObj.reply.customStatus[0])) {
+            // No change message received ([NOCNG])
+                SystemLog.updateOne({
+                    serial: sessionData.serial,
+                    created: new Date(sampleDate.toLocaleDateString()),
+                    sampleCnt: { $lt: 10000 },
+                },
+                {
+                    $set: {
+                        [`sampleTime.${sampleDate.getTime()}.srcId.0.status`]: '[NOCNG]',
+                    },
+                    $inc: { sampleCnt: 1 },
+                    $min: { first: sampleDate },
+                    $max: { last: sampleDate },
+                },
+                {
+                    upsert: true,
+                })
+                    .then(results => {
+                        // console.log(`SystemLog.updateOne:  `, results)
+                    })
+
+                return _delay(1000)
+            }
+
             // Track update index
-            sessionData.curindex = jsonData.reply.index
-            return _delay(5000)
+            sessionData.curindex = jsObj.reply.index
+
+            let setObj = {}
+            let configObj = {}
+            let tempCnt = 0
+            if (jsObj.reply.configuration) {
+                setObj = jsObj.reply.configuration[0].sensors.reduce((tempObj, sensor) => {
+                    tempObj[`sampleTime.${sampleTime}.srcId.${sensor.index[0]}.status`] = (sensor.status ? sensor.status[0] : 'OK')
+                    tempCnt++
+                    return tempObj
+                }, setObj)
+
+                configObj = jsObj.reply.detectors[0].detector.reduce((tempObj, { zone, loc, type, isalarm, status }) => {
+                    tempObj[`sensorId.${zone[0]}.loc`] = loc[0]
+                    tempObj[`sensorId.${zone[0]}.type`] = type[0]
+                    tempObj[`sensorId.${zone[0]}.isalarm`] = isalarm[0]
+                    tempObj[`sensorId.${zone[0]}.status`] = status[0]
+                    tempCnt += 4
+                    return tempObj
+                }, configObj)
+                // console.log(`pollVisonic (configObj):  `, configObj)
+            } else if (jsObj.reply.update) {
+                setObj = jsObj.reply.update[0].sensors.reduce((tempObj, sensor) => {
+                    tempObj[`sampleTime.${sampleTime}.srcId.${sensor.index[0]}.status`] = (sensor.status ? sensor.status[0] : 'OK')
+                    tempCnt++
+                    return tempObj
+                }, setObj)
+            }
+
+            SystemConfig.updateOne({
+                serial: sessionData.serial,
+            },
+            {
+                $set: configObj,
+            },
+            {
+                upsert: true,
+            })
+                .then(results => {
+                    console.log(`pollVisonic (SystemConfig):  Successful...`, typeof results)
+                })
+
+            SystemLog.updateOne({
+                serial: sessionData.serial,
+                created: new Date(sampleDate.toLocaleDateString()),
+                sampleCnt: { $lt: 10000 },
+            },
+            {
+                $set: setObj,
+                $inc: { sampleCnt: tempCnt },
+                $min: { first: sampleDate },
+                $max: { last: sampleDate },
+            },
+            {
+                upsert: true,
+            })
+                .then(results => {
+                    console.log(`pollVisonic (SystemLog):  Successful...`, typeof results)
+                })
+
+            return _delay(1000)
         })
         .then(pollVisonic)
         .catch(err => {
@@ -356,9 +509,9 @@ function pollVisonic() {
                         },
                     },
                 )
-                    .then((result) => {
-                        console.log('Authenticated by Visonic...', result.headers['set-cookie'][0])
-                        visonicCookie = result.headers['set-cookie'][0]
+                    .then(({ headers }) => {
+                        console.log('Authenticated by Visonic...', headers['set-cookie'][0])
+                        visonicCookie = headers['set-cookie'][0]
                         visonicSessionId = visonicCookie.match(sessionIdRegex)[1]
                         sessionData.sesid = visonicSessionId
                         return _delay(5000)
@@ -371,7 +524,7 @@ function pollVisonic() {
                 break
             }
         }),
-        5000)
+    5000)
 }
 
 /**
@@ -388,7 +541,7 @@ mongoose.connect('mongodb://localhost/visonic', { useUnifiedTopology: true, useN
         console.log('App started on port 8080...')
     })
 
-    // pollVisonic()
+    pollVisonic()
 }).catch(err => {
     console.log('ERROR', err)
 })
