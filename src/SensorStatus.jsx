@@ -65,7 +65,7 @@ export default class PingLog extends React.Component {
         })
 
         // Start polling for ping status
-        PingLog.pollPingLog()
+        //PingLog.pollPingLog()
     }
 
     /**
@@ -75,7 +75,7 @@ export default class PingLog extends React.Component {
         try {
             const res = await axios.get(url, { params: query })
             const { data } = res
-            console.log(`ajaxGet (${url}):  `, data)
+            //console.log(`ajaxGet (${url}):  `, data)
             return data
         } catch (err) {
             return console.log(`ajaxGet (ERR${url}):  `, err)
@@ -130,7 +130,7 @@ export default class PingLog extends React.Component {
         let currentMoment
         PingLog._poll(() => PingLog.ajaxGet(cmdPingLog)
             .then((data) => {
-                console.log('_poll AllStats:  ', data)
+                //console.log('_poll AllStats:  ', data)
                 const pingLogData = []
                 Object.keys(data.sampleTime).forEach(time => {
                     if (((data.sampleTime[time].srcId || {})[0] || {}).pinged) {
@@ -170,7 +170,7 @@ export default class PingLog extends React.Component {
                     x: currentMoment,
                     y: 1,
                 })
-                console.log('pollAllStats:  Successful...', pingLogData)
+                //console.log('pollAllStats:  Successful...', pingLogData)
 
                 myChart.data.datasets[0].data = pingLogData
                 myChart.update()

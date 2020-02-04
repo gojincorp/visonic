@@ -2,6 +2,7 @@ import express from 'express'
 import https from 'https'
 import axios from 'axios'
 import { parseStringPromise } from 'xml2js'
+import moment from 'moment'
 import SourceMapSupport from 'source-map-support' // Source Maps
 import cors from 'cors'                 // Cross origin resource sharing
 import bodyParser from 'body-parser'    // Handler for processing req.body
@@ -13,6 +14,8 @@ import 'core-js/stable'                 // Replacement for @babel/polyfill
 import 'regenerator-runtime/runtime'    // Replacement for @babel/polyfill
 import querystring from 'querystring'
 import Issue from './issues'         // Custom module
+
+moment().format()
 
 /**
  * Initialize constants
@@ -45,6 +48,7 @@ const sessionData = {
     serial: visonicSerial,
 }
 let db
+const pingJitter = 120000 // 2 minutes
 
 /**
  * MongoDB Schemas
@@ -180,20 +184,88 @@ appHttp.use(bodyParser.xml())
  * RESTful like API (HTTPS)
  **************************************************************************** */
 appHttps.get('/api/allstats', (req, res) => {
-    SystemLog.find()
-        .then(docs => {
-            const finalDoc = docs.reduce((tempDoc, doc) => {
-                tempDoc.last = doc.last
-                tempDoc.sampleCnt += doc.sampleCnt
-                tempDoc.sampleTime = new Map([...tempDoc.sampleTime, ...doc.sampleTime])
-                return tempDoc
-            })
-            res.json(finalDoc)
-        })
-        .catch(err => {
-            console.log(`Error:  ${err}`)
-            res.status(500).json({ message: `Internal Server Error: ${err}` })
-        })
+     SystemLog.find()
+         .then(docs => {
+             const finalDoc = docs.reduce((tempDoc, doc) => {
+                 tempDoc.last = doc.last
+                 tempDoc.sampleCnt += doc.sampleCnt
+                 tempDoc.sampleTime = new Map([...tempDoc.sampleTime, ...doc.sampleTime])
+                 return tempDoc
+             })
+             res.json(finalDoc)
+         })
+         .catch(err => {
+             console.log(`Error:  ${err}`)
+             res.status(500).json({ message: `Internal Server Error: ${err}` })
+         })
+})
+appHttps.get('/api/pinglog', (req, res) => {
+     SystemLog.find({})
+         .then(docs => {
+             let prevTime = 0
+             let endTime = 0
+             let prevState
+             const pingLog = []
+             docs.reduce((pingLog, doc) => {
+                 doc.sampleTime.forEach(({ srcId }, time) => {
+                     time = parseInt(time)
+                     if (!prevTime) {
+                     // First sample
+                         prevTime = time
+                         endTime = time
+                         prevState = ((srcId.get('0') || {}).pinged) ? 1 : 0
+                         pingLog.push({
+                             x: prevTime,
+                             y: prevState,
+                         })
+                     } else if ((srcId.get('0') || {}).pinged) {
+                     // New ping detected
+                         if (prevState) {
+                         // Ping from previous state
+                             if (time - prevTime > pingJitter) {
+                             // Ping not found within jitter...need to log
+                                 pingLog.push({
+                                     x: prevTime + 60000,
+                                     y: 0,
+                                 })
+                                 pingLog.push({
+                                     x: time,
+                                     y: 1,
+                                 })
+                                 prevState = 1
+                             }
+                             prevTime = time
+                             endTime = time
+                         } else {
+                             pingLog.push({
+                                 x: time,
+                                 y: 1,
+                             })
+                             prevState = 1
+                             prevTime = time
+                             endTime = time
+                         }
+                     }
+                 })
+                 return pingLog
+             }, pingLog)
+             if (endTime - prevTime > pingJitter) {
+                 pingLog.push({
+                     x: endTime,
+                     y: 0,
+                 })
+             } else {
+                 pingLog.push({
+                     x: endTime,
+                     y: prevState,
+                 })
+             }
+             res.json(pingLog)
+         })
+         .catch(err => {
+             console.log(`Error:  ${err}`)
+             res.status(500).json({ message: `Internal Server Error: ${err}` })
+         })
 })
 appHttps.get('/api/pinglog', (req, res) => {
     SystemLog.findOne()

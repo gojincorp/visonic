@@ -4,13 +4,13 @@ import $ from 'jquery'
 import 'bootstrap'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import React from 'react'
-import ReactDOM from 'react-dom'
+import { render } from 'react-dom'
 import HealthMonitor from './HealthMonitor' // Custom module
 
 $(() => {
     const contentNode = $('#contents')[0]
 
-    ReactDOM.render(<HealthMonitor />, contentNode)
+    render(<HealthMonitor />, contentNode)
 })
 
 if (module.hot) {
