@@ -26,6 +26,7 @@ const visonicIp = '192.168.2.200'
 const visonicUser = 'ibvadmin'
 const visonicPwd = 'blgn5w5ojk'
 const visonicSerial = 2710015066
+const visonicAccount = 696966
 const baseUrl = `http://${visonicIp}`
 const cmdLogin = `${baseUrl}/web/ajax/login.login.ajax.php`
 // const cmdLogout = `${baseUrl}/web/login.php?act=logout`
@@ -46,6 +47,7 @@ const sessionData = {
     sesusername: visonicUser,
     sesusermanager: 99,
     serial: visonicSerial,
+    account: visonicAccount,
 }
 let db
 const pingJitter = 120000 // 2 minutes
@@ -86,43 +88,20 @@ const systemLogSchema = new Schema({
     ver_var: String,
     upgrade_status: Number,
     configuration_status: Number,
-    timestamp: Date,
-    logDates: {
-        type: Map, // { date: value }
-        of: {
-            _id: false,
-            logHrs: {
-                type: Map, // { hour: value }
-                of: {
-                    _id: false,
-                    logMins: { // { minute: value }
-                        type: Map,
-                        of: {
-                            _id: false,
-                            pinged: Boolean,
-                        },
-                    },
-                },
-            },
-        },
-    },
     created: Date, // timestamp without time
     first: Number,
     last: Number,
-    sampleTime: {
-        type: Map, // <time>
-        of: {
+    samples: [
+        {
             _id: false,
-            srcId: {
-                type: Map, // <panel|zone>
-                of: {
-                    _id: false,
-                    pinged: Boolean,
-                    status: String,
-                },
-            },
+            time: Number,
+            dataSet: [{
+                _id: false,
+                src: Number,
+                data: String,
+            }],
         },
-    },
+    ],
     sampleCnt: Number,
 })
 const SystemLog = mongoose.model('SystemLog', systemLogSchema)
@@ -184,88 +163,173 @@ appHttp.use(bodyParser.xml())
  * RESTful like API (HTTPS)
  **************************************************************************** */
 appHttps.get('/api/allstats', (req, res) => {
-     SystemLog.find()
-         .then(docs => {
-             const finalDoc = docs.reduce((tempDoc, doc) => {
-                 tempDoc.last = doc.last
-                 tempDoc.sampleCnt += doc.sampleCnt
-                 tempDoc.sampleTime = new Map([...tempDoc.sampleTime, ...doc.sampleTime])
-                 return tempDoc
-             })
-             res.json(finalDoc)
-         })
-         .catch(err => {
-             console.log(`Error:  ${err}`)
-             res.status(500).json({ message: `Internal Server Error: ${err}` })
-         })
+    SystemLog.find()
+        .then(docs => {
+            const finalDoc = docs.reduce((tempDoc, doc) => {
+                tempDoc.last = doc.last
+                tempDoc.sampleCnt += doc.sampleCnt
+                tempDoc.sampleTime = new Map([...tempDoc.sampleTime, ...doc.sampleTime])
+                return tempDoc
+            })
+            res.json(finalDoc)
+        })
+        .catch(err => {
+            console.log(`Error:  ${err}`)
+            res.status(500).json({ message: `Internal Server Error: ${err}` })
+        })
 })
 appHttps.get('/api/pinglog', (req, res) => {
-     SystemLog.find({})
-         .then(docs => {
-             let prevTime = 0
-             let endTime = 0
-             let prevState
-             const pingLog = []
-             docs.reduce((pingLog, doc) => {
-                 doc.sampleTime.forEach(({ srcId }, time) => {
-                     time = parseInt(time)
-                     if (!prevTime) {
-                     // First sample
-                         prevTime = time
-                         endTime = time
-                         prevState = ((srcId.get('0') || {}).pinged) ? 1 : 0
-                         pingLog.push({
-                             x: prevTime,
-                             y: prevState,
-                         })
-                     } else if ((srcId.get('0') || {}).pinged) {
-                     // New ping detected
-                         if (prevState) {
-                         // Ping from previous state
-                             if (time - prevTime > pingJitter) {
-                             // Ping not found within jitter...need to log
-                                 pingLog.push({
-                                     x: prevTime + 60000,
-                                     y: 0,
-                                 })
-                                 pingLog.push({
-                                     x: time,
-                                     y: 1,
-                                 })
-                                 prevState = 1
-                             }
-                             prevTime = time
-                             endTime = time
-                         } else {
-                             pingLog.push({
-                                 x: time,
-                                 y: 1,
-                             })
-                             prevState = 1
-                             prevTime = time
-                             endTime = time
-                         }
-                     }
-                 })
-                 return pingLog
-             }, pingLog)
-             if (endTime - prevTime > pingJitter) {
-                 pingLog.push({
-                     x: endTime,
-                     y: 0,
-                 })
-             } else {
-                 pingLog.push({
-                     x: endTime,
-                     y: prevState,
-                 })
-             }
-             res.json(pingLog)
-         })
-         .catch(err => {
-             console.log(`Error:  ${err}`)
-             res.status(500).json({ message: `Internal Server Error: ${err}` })
-         })
+    // Hard coded 7 day time period
+    const startTime = new Date().setMilliseconds(0) - 604800000
+
+    SystemLog.aggregate([
+        {
+            $unwind: {
+                path: '$samples',
+            },
+        },
+        {
+            $group: {
+                _id: 0,
+                samples: { $addToSet: '$samples' },
+            },
+        },
+        {
+            $project: {
+                _id: 0,
+                pingData: {
+                    $filter: {
+                        input: {
+                            $map: {
+                                input: '$samples',
+                                as: 'sample',
+                                in: {
+                                    $cond: [
+                                        {},
+                                        {
+                                            $reduce: {
+                                                input: '$$sample.dataSet',
+                                                initialValue: 0,
+                                                in: {
+                                                    $cond: [
+                                                        { $eq: ['$$this.data', 'ping'] },
+                                                        '$$sample.time',
+                                                        '$$value',
+                                                    ],
+                                                },
+                                            },
+                                        },
+                                        false,
+                                    ],
+                                },
+                            },
+                        },
+                        as: 'sample',
+                        cond: {
+                            $gt: ['$$sample', 0],
+                        },
+                    },
+                },
+            },
+        },
+        {
+            $unwind: {
+                path: '$pingData',
+            },
+        },
+        {
+            $sort: {
+                pingData: 1,
+            },
+        },
+        {
+            $group: {
+                _id: 0,
+                pingData: { $push: '$pingData' },
+            },
+        },
+        {
+            $project: {
+                pingData: '$pingData',
+            },
+        },
+    ])
+        .then(docs => {
+            let time
+            let prevTime = 0
+            let endTime = 0
+            let prevState
+            const pingLog = docs.reduce((tempLog, doc) => {
+                for (let i = 0; i < doc.pingData.length; i++) {
+                    time = doc.pingData[i]
+                    if (!prevTime) {
+                    // First sample
+                        if (time - startTime > pingJitter) {
+                            tempLog.push({
+                                x: startTime,
+                                y: 0,
+                            })
+                            tempLog.push({
+                                x: time,
+                                y: 1,
+                            })
+                        } else {
+                            tempLog.push({
+                                x: startTime,
+                                y: 1,
+                            })
+                            tempLog.push({
+                                x: time,
+                                y: 1,
+                            })
+                        }
+                        prevState = 1
+                        prevTime = time
+                        endTime = time
+                    } else if (prevState) {
+                        if (time - prevTime > pingJitter) {
+                        // Ping not found within jitter...need to log
+                            tempLog.push({
+                                x: prevTime + 60000,
+                                y: 0,
+                            })
+                            tempLog.push({
+                                x: time,
+                                y: 1,
+                            })
+                            prevState = 1
+                        }
+                        prevTime = time
+                        endTime = time
+                    } else {
+                        tempLog.push({
+                            x: time,
+                            y: 1,
+                        })
+                        prevState = 1
+                        prevTime = time
+                        endTime = time
+                    }
+                }
+                return tempLog
+            }, [])
+            if (endTime - prevTime > pingJitter) {
+                pingLog.push({
+                    x: endTime,
+                    y: 0,
+                })
+            } else {
+                pingLog.push({
+                    x: endTime,
+                    y: prevState,
+                })
+            }
+            res.json(pingLog)
+        })
+        .catch(err => {
+            console.log(`Error:  ${err}`)
+            res.status(500).json({ message: `Internal Server Error: ${err}` })
+        })
 })
 appHttps.get('/api/pinglog', (req, res) => {
     SystemLog.findOne()
@@ -330,30 +394,65 @@ appHttp.get('/scripts/update.php*', (req, res) => {
         upsert: true,
     })
         .then(results => {
-            console.log('Powerlink Resful API (GET: /scripts/update.php*):  System config...', typeof results)
+            console.log('Powerlink -> IB (GET: /scripts/update.php*):  System config...', typeof results)
         })
 
     SystemLog.updateOne({
         serial: sessionData.serial,
         created: new Date(logDate.toLocaleDateString()),
         sampleCnt: { $lt: 10000 },
+        samples: {
+            $elemMatch: {
+                time: logDate.getTime(),
+            },
+        },
     },
     {
-        $setOnInsert: {
-            ...req.query,
-        },
-        $set: {
-            [`sampleTime.${logDate.getTime()}.srcId.0.pinged`]: true,
+        $push: {
+            'samples.$.dataSet': {
+                src: 0,
+                data: 'ping',
+            },
         },
         $inc: { sampleCnt: 1 },
         $min: { first: logDate },
         $max: { last: logDate },
     },
     {
-        upsert: true,
+        upsert: false,
     })
         .then(results => {
-            console.log('Powerlink Resful API (GET: /scripts/update.php*):  System logs...', typeof results)
+            console.log('Powerlink -> IB (GET: /scripts/update.php* A):  System logs...', typeof results)
+            if (!results.n) {
+                SystemLog.updateOne({
+                    serial: sessionData.serial,
+                    created: new Date(logDate.toLocaleDateString()),
+                    sampleCnt: { $lt: 10000 },
+                },
+                {
+                    $setOnInsert: {
+                        ...req.query,
+                    },
+                    $push: {
+                        samples: {
+                            time: logDate.getTime(),
+                            dataSet: {
+                                src: 0,
+                                data: 'ping',
+                            },
+                        },
+                    },
+                    $inc: { sampleCnt: 1 },
+                    $min: { first: logDate },
+                    $max: { last: logDate },
+                },
+                {
+                    upsert: true,
+                })
+                    .then(results => {
+                        console.log('Powerlink -> IB (GET: /scripts/update.php* B):  System logs...', typeof results)
+                    })
+            }
         })
 
     res.send('status=0&ka_time=50&allow=0&\n')
@@ -363,14 +462,14 @@ appHttp.get('/scripts/update.php*', (req, res) => {
 // Catch all GET handler
 // ---------------------
 appHttp.get('/scripts/*', (req, res) => {
-    console.log('Powerlink Resful API (GET: /scripts/*):  ', typeof req, typeof res)
+    console.log('Powerlink -> IB  (GET: /scripts/*):  ', typeof req, typeof res)
 })
 
 //
 // Notification alert from Powerlink module
 // ----------------------------------
 appHttp.post('/scripts/notify.php', (req, res) => {
-    console.log('Visonic POST (/scripts/notify.php):  ', req.body.notify.index[0], req.body.notify)
+    console.log('Powerlink -> IB (POST: /scripts/notify.php):  ', req.body.notify.index[0], req.body.notify)
     res.type('application/xml')
     res.send(`<response><index>${req.body.notify.index[0]}</index></response>`)
 })
@@ -379,7 +478,7 @@ appHttp.post('/scripts/notify.php', (req, res) => {
 // Catch all POST handler
 // ---------------------
 appHttp.post('/scripts/*', (req, res) => {
-    console.log('Powerlink Resful API (POST: /scripts/*):  ', typeof req, typeof res)
+    console.log('Powerlink -> IB (POST: /scripts/*):  ', typeof req, typeof res)
 })
 
 /**
@@ -434,7 +533,7 @@ function _delay(ms) {
  * @param {number} [retries=Infinity] - number of retries for the callback function
  */
 function _poll(cb, interval = 5000, retries = Infinity) {
-    //console.log('_poll START')
+    // console.log('_poll START')
     return Promise.resolve()
         .then(cb)
         .catch(function retry(err) {
@@ -472,7 +571,7 @@ function pollVisonic() {
         .then(jsObj => {
             // Must exit if no Powerlink serial number
             if (!sessionData.serial) {
-                console.log('Polling:  Powerlink serial number is missing...')
+                console.log('IB -> PowerLink:  Powerlink serial number is missing...')
                 return _delay(1000)
             }
 
@@ -485,20 +584,55 @@ function pollVisonic() {
                     serial: sessionData.serial,
                     created: new Date(sampleDate.toLocaleDateString()),
                     sampleCnt: { $lt: 10000 },
+                    samples: {
+                        $elemMatch: {
+                            time: sampleTime,
+                        },
+                    },
                 },
                 {
-                    $set: {
-                        [`sampleTime.${sampleDate.getTime()}.srcId.0.status`]: '[NOCNG]',
+                    $push: {
+                        'samples.$.dataSet': {
+                            src: 0,
+                            data: '[NOCNG]',
+                        },
                     },
                     $inc: { sampleCnt: 1 },
                     $min: { first: sampleDate },
                     $max: { last: sampleDate },
                 },
                 {
-                    upsert: true,
+                    upsert: false,
                 })
                     .then(results => {
                         // console.log(`SystemLog.updateOne:  `, results)
+                        if (!results.n) {
+                            SystemLog.updateOne({
+                                serial: sessionData.serial,
+                                created: new Date(sampleDate.toLocaleDateString()),
+                                sampleCnt: { $lt: 10000 },
+                            },
+                            {
+                                $push: {
+                                    samples: {
+                                        time: sampleTime,
+                                        dataSet: {
+                                            src: 0,
+                                            data: '[NOCNG]',
+                                        },
+                                    },
+                                },
+                                $inc: { sampleCnt: 1 },
+                                $min: { first: sampleDate },
+                                $max: { last: sampleDate },
+                            },
+                            {
+                                upsert: true,
+                            })
+                                .then(results => {
+                                    // console.log(`SystemLog.updateOne:  `, results)
+                                })
+                        }
                     })
 
                 return _delay(1000)
@@ -509,10 +643,15 @@ function pollVisonic() {
 
             let setObj = {}
             let configObj = {}
+            let sensorArr = []
             let tempCnt = 0
             if (jsObj.reply.configuration) {
                 setObj = jsObj.reply.configuration[0].sensors.reduce((tempObj, sensor) => {
-                    tempObj[`sampleTime.${sampleTime}.srcId.${sensor.index[0]}.status`] = (sensor.status ? sensor.status[0] : 'OK')
+                    tempObj[`samples.${sampleTime}.srcId.${sensor.index[0]}.status`] = (sensor.status ? sensor.status[0] : 'OK')
+                    sensorArr[sensorArr.length] = {
+                        src: sensor.index[0],
+                        data: sensor.status ? sensor.status[0] : 'OK',
+                    }
                     tempCnt++
                     return tempObj
                 }, setObj)
@@ -522,13 +661,17 @@ function pollVisonic() {
                     tempObj[`sensorId.${zone[0]}.type`] = type[0]
                     tempObj[`sensorId.${zone[0]}.isalarm`] = isalarm[0]
                     tempObj[`sensorId.${zone[0]}.status`] = status[0]
-                    tempCnt += 4
+                    //tempCnt += 4
                     return tempObj
                 }, configObj)
                 // console.log(`pollVisonic (configObj):  `, configObj)
             } else if (jsObj.reply.update) {
                 setObj = jsObj.reply.update[0].sensors.reduce((tempObj, sensor) => {
-                    tempObj[`sampleTime.${sampleTime}.srcId.${sensor.index[0]}.status`] = (sensor.status ? sensor.status[0] : 'OK')
+                    tempObj[`samples.${sampleTime}.srcId.${sensor.index[0]}.status`] = (sensor.status ? sensor.status[0] : 'OK')
+                    sensorArr[sensorArr.length] = {
+                        src: sensor.index[0],
+                        data: sensor.status ? sensor.status[0] : 'OK',
+                    }
                     tempCnt++
                     return tempObj
                 }, setObj)
@@ -544,25 +687,62 @@ function pollVisonic() {
                 upsert: true,
             })
                 .then(results => {
-                    console.log(`pollVisonic (SystemConfig):  Successful...`, typeof results)
+                    console.log(`IB -> PowerLink (SystemConfig):  Successful...`, typeof results)
                 })
 
-            SystemLog.updateOne({
-                serial: sessionData.serial,
-                created: new Date(sampleDate.toLocaleDateString()),
-                sampleCnt: { $lt: 10000 },
-            },
-            {
-                $set: setObj,
-                $inc: { sampleCnt: tempCnt },
-                $min: { first: sampleDate },
-                $max: { last: sampleDate },
-            },
-            {
-                upsert: true,
-            })
+            SystemLog.updateOne(
+                {
+                    serial: sessionData.serial,
+                    created: new Date(sampleDate.toLocaleDateString()),
+                    sampleCnt: { $lt: 10000 },
+                    samples: {
+                        $elemMatch: {
+                            time: sampleTime,
+                        },
+                    },
+                },
+                {
+                    $push: {
+                        'samples.$.dataSet': {
+                            $each: [...sensorArr],
+                        },
+                    },
+                    $inc: { sampleCnt: tempCnt },
+                    $min: { first: sampleDate },
+                    $max: { last: sampleDate },
+                },
+                { upsert: false, }
+            )
                 .then(results => {
-                    console.log(`pollVisonic (SystemLog):  Successful...`, typeof results)
+                    console.log(`IB -> PowerLink (SystemLog A):  Successful...`, results)
+                    if (!results.n) {
+                        SystemLog.updateOne(
+                                {
+                                    serial: sessionData.serial,
+                                    created: new Date(sampleDate.toLocaleDateString()),
+                                    sampleCnt: { $lt: 10000 },
+                                },
+                                {
+                                    $setOnInsert: {
+                                        serial: sessionData.serial,
+                                        account:  sessionData.account,
+                                    },
+                                    $push: {
+                                        samples: {
+                                            time: sampleTime,
+                                            dataSet: [...sensorArr],
+                                        },
+                                    },
+                                    $inc: { sampleCnt: tempCnt },
+                                    $min: { first: sampleDate },
+                                    $max: { last: sampleDate },
+                                },
+                                { upsert: true, }
+                            )
+                                .then(results => {
+                                    console.log(`IB -> PowerLink (SystemLog B):  Successful...`,  typeof results)
+                                })
+                    }
                 })
 
             return _delay(1000)
