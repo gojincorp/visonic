@@ -163,15 +163,115 @@ appHttp.use(bodyParser.xml())
  * RESTful like API (HTTPS)
  **************************************************************************** */
 appHttps.get('/api/allstats', (req, res) => {
-    SystemLog.find()
+    // Hard coded 7 day time period
+    const startTime = new Date().setMilliseconds(0) - 604800000
+
+    SystemLog.aggregate([
+        {
+            $project: {
+                _id: 0,
+                samples: 1
+            }
+        },
+        {
+            $unwind: {
+                path: '$samples',
+            },
+        },
+        {
+            $unwind: {
+                path: '$samples.dataSet',
+            },
+        },
+        {
+            $match: { 'samples.dataSet.src': 0, 'samples.dataSet.data': 'ping'},
+        },
+        {
+            $project: {
+                src: '$samples.dataSet.src',
+                time: '$samples.time',
+            }
+        },
+        {
+            $group: {
+                _id: '$src',
+                pingData: {
+                    $push: '$time',
+                },
+            },
+        }
+    ])
         .then(docs => {
-            const finalDoc = docs.reduce((tempDoc, doc) => {
-                tempDoc.last = doc.last
-                tempDoc.sampleCnt += doc.sampleCnt
-                tempDoc.sampleTime = new Map([...tempDoc.sampleTime, ...doc.sampleTime])
-                return tempDoc
-            })
-            res.json(finalDoc)
+            let time
+            let prevTime = 0
+            let endTime = 0
+            let prevState
+            const pingLog = docs.reduce((tempLog, doc) => {
+                for (let i = 0; i < doc.pingData.length; i++) {
+                    time = doc.pingData[i]
+                    if (!prevTime) {
+                    // First sample
+                        if (time - startTime > pingJitter) {
+                            tempLog.push({
+                                x: startTime,
+                                y: 0,
+                            })
+                            tempLog.push({
+                                x: time,
+                                y: 1,
+                            })
+                        } else {
+                            tempLog.push({
+                                x: startTime,
+                                y: 1,
+                            })
+                            tempLog.push({
+                                x: time,
+                                y: 1,
+                            })
+                        }
+                        prevState = 1
+                        prevTime = time
+                        endTime = time
+                    } else if (prevState) {
+                        if (time - prevTime > pingJitter) {
+                        // Ping not found within jitter...need to log
+                            tempLog.push({
+                                x: prevTime + 60000,
+                                y: 0,
+                            })
+                            tempLog.push({
+                                x: time,
+                                y: 1,
+                            })
+                            prevState = 1
+                        }
+                        prevTime = time
+                        endTime = time
+                    } else {
+                        tempLog.push({
+                            x: time,
+                            y: 1,
+                        })
+                        prevState = 1
+                        prevTime = time
+                        endTime = time
+                    }
+                }
+                return tempLog
+            }, [])
+            if (endTime - prevTime > pingJitter) {
+                pingLog.push({
+                    x: endTime,
+                    y: 0,
+                })
+            } else {
+                pingLog.push({
+                    x: endTime,
+                    y: prevState,
+                })
+            }
+            res.json(pingLog)
         })
         .catch(err => {
             console.log(`Error:  ${err}`)
@@ -184,75 +284,38 @@ appHttps.get('/api/pinglog', (req, res) => {
 
     SystemLog.aggregate([
         {
+            $project: {
+                _id: 0,
+                samples: 1
+            }
+        },
+        {
             $unwind: {
                 path: '$samples',
             },
         },
         {
-            $group: {
-                _id: 0,
-                samples: { $addToSet: '$samples' },
+            $unwind: {
+                path: '$samples.dataSet',
             },
         },
         {
+            $match: { 'samples.dataSet.src': 0, 'samples.dataSet.data': 'ping'},
+        },
+        {
             $project: {
-                _id: 0,
+                src: '$samples.dataSet.src',
+                time: '$samples.time',
+            }
+        },
+        {
+            $group: {
+                _id: '$src',
                 pingData: {
-                    $filter: {
-                        input: {
-                            $map: {
-                                input: '$samples',
-                                as: 'sample',
-                                in: {
-                                    $cond: [
-                                        {},
-                                        {
-                                            $reduce: {
-                                                input: '$$sample.dataSet',
-                                                initialValue: 0,
-                                                in: {
-                                                    $cond: [
-                                                        { $eq: ['$$this.data', 'ping'] },
-                                                        '$$sample.time',
-                                                        '$$value',
-                                                    ],
-                                                },
-                                            },
-                                        },
-                                        false,
-                                    ],
-                                },
-                            },
-                        },
-                        as: 'sample',
-                        cond: {
-                            $gt: ['$$sample', 0],
-                        },
-                    },
+                    $push: '$time',
                 },
             },
-        },
-        {
-            $unwind: {
-                path: '$pingData',
-            },
-        },
-        {
-            $sort: {
-                pingData: 1,
-            },
-        },
-        {
-            $group: {
-                _id: 0,
-                pingData: { $push: '$pingData' },
-            },
-        },
-        {
-            $project: {
-                pingData: '$pingData',
-            },
-        },
+        }
     ])
         .then(docs => {
             let time
@@ -488,15 +551,15 @@ async function ajaxGet(url, query = {}) {
     try {
         const res = await axios.get(url, { params: query })
         const { data } = res
-        console.log(`ajaxGet (${url}):  `, data)
+        console.log(`IB -> PowerLink (GET ${url}):  `, data)
     } catch (err) {
-        console.log(`ajaxGet (ERR${url}):  `, err)
+        console.log(`IB -> PowerLink (GET ERR:${url}):  `, err)
     }
 }
 
 async function ajaxPost(url, data = null, config = {}) {
     try {
-        console.log(`ajaxPost (${url}):  `)
+        console.log(`IB -> PowerLink (POST ${url}):  `)
         const res = await axios.post(
             url,
             data,
@@ -509,7 +572,7 @@ async function ajaxPost(url, data = null, config = {}) {
         // const data = res.data
         return res
     } catch (err) {
-        console.log(`ajaxPost (ERR/${url}):  `, err.message)
+        console.log(`IB -> PowerLink (POST ERR:${url}):  `, err.message)
         // res.status(500).json({ message: `Internal Server Error:  ${err}` })
         throw err
     }

@@ -24,11 +24,14 @@ export default class HealthMonitor extends React.Component {
         this.state = {
             sampleTime: new Map()
         }
+
+        this.pingChartId = 'pingChart'
+        this.sensorChartId = 'sensorChart'
     }
 
     componentDidMount() {
         // Start polling for ping status
-        HealthMonitor.pollAllStats()
+        //HealthMonitor.pollAllStats()
     }
 
     /**
@@ -38,9 +41,10 @@ export default class HealthMonitor extends React.Component {
         const jitter = 2 // Allow 2 minute ping buffer before alert
         let prevMoment = false
         let currentMoment
-        poll(() => PingLog.ajaxGet(cmdGetPingLog)
+        poll(() => PingLog.ajaxGet(cmdGetAllStats)
             .then((data) => {
-                //console.log('_poll AllStats:  ', data)
+                console.log('_poll AllStats:  ', data)
+                /*
                 const pingLogData = []
                 Object.keys(data.sampleTime).forEach(time => {
                     if (((data.sampleTime[time].srcId || {})[0] || {}).pinged) {
@@ -84,7 +88,7 @@ export default class HealthMonitor extends React.Component {
 
                 //myChart.data.datasets[0].data = pingLogData
                 //myChart.update()
-
+                */
                 return delay(5000)
             })
             .then(HealthMonitor.pollAllStats)
@@ -98,9 +102,9 @@ export default class HealthMonitor extends React.Component {
         const { sampleTimes } = this.state
         return (
             <div>
-                <PingLog sampleTimes={sampleTimes} />
+                <PingLog sampleTimes={sampleTimes} chartId={this.pingChartId} />
                 <hr />
-                <SensorStatus sampleTimes={sampleTimes} />
+                <SensorStatus sampleTimes={sampleTimes} chartId={this.sensorChartId} />
             </div>
         )
     }
