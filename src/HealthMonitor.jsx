@@ -145,61 +145,13 @@ export default class HealthMonitor extends React.Component {
      * Supporting functions to facilitate polling
      ************************************************************************ */
     pingStats() {
-        const jitter = 2 // Allow 2 minute ping buffer before alert
         const newEnd = new Date().setMilliseconds(0)
-        let newStart = newEnd - 432000000 // 604800000 = 7 days ago, 432000000 = 5 days ago, 86400000 = 24 hours ago 
+        const newStart = newEnd - 432000000 // 604800000 = 7 days ago, 432000000 = 5 days ago, 86400000 = 24 hours ago 
         const { startTime, endTime } = this.state
-        let prevMoment = false
-        let currentMoment
         poll(() => ajaxGet(`${cmdGetPingLog}?startTime=${startTime}&endTime=${endTime}&newStart=${newStart}&newEnd=${newEnd}`)
             .then((data) => {
                 console.log('pingStats:  ', this.state, data)
-                /*
-                const pingLogData = []
-                Object.keys(data.sampleTime).forEach(time => {
-                    if (((data.sampleTime[time].srcId || {})[0] || {}).pinged) {
-                        if (!prevMoment) {
-                            prevMoment = moment(time, 'x')
-                            pingLogData.push({
-                                x: prevMoment,
-                                y: 1,
-                            })
-                        } else {
-                            currentMoment = moment(time, 'x')
-                            if (currentMoment.diff(prevMoment, 'minutes') <= jitter) {
-                                prevMoment = currentMoment
-                            } else {
-                                pingLogData.push({
-                                    x: prevMoment,
-                                    y: 1,
-                                })
-                                pingLogData.push({
-                                    x: prevMoment.clone().add(1, 'm'),
-                                    y: 0,
-                                })
-                                pingLogData.push({
-                                    x: currentMoment.clone().subtract(1, 'm'),
-                                    y: 0,
-                                })
-                                pingLogData.push({
-                                    x: currentMoment,
-                                    y: 1,
-                                })
-                                prevMoment = currentMoment
-                            }
-                        }
-                    }
-                })
-                pingLogData.push({
-                    x: currentMoment,
-                    y: 1,
-                })
-                //console.log('pingStats:  Successful...', pingLogData)
 
-                //this.pingChart.data.datasets[0].data = pingLogData
-                //this.pingChart.update()
-                */
-                
                 this.pingChart.data.datasets[0].data = data
                 this.pingChart.update()
                 return delay(5000)
@@ -215,22 +167,15 @@ export default class HealthMonitor extends React.Component {
      * Supporting functions to facilitate polling
      ************************************************************************ */
     sensorStats() {
-        const jitter = 2 // Allow 2 minute sensor buffer before alert
         const newEnd = new Date().setMilliseconds(0)
-        let newStart = newEnd - 86400000 // 604800000 = 7 days ago, 432000000 = 5 days ago, 86400000 = 24 hours ago 
+        const newStart = newEnd - 86400000 // 604800000 = 7 days ago, 432000000 = 5 days ago, 86400000 = 24 hours ago 
         const { startTime, endTime } = this.state
-        let prevMoment = false
-        let currentMoment
         poll(() => ajaxGet(`${cmdGetSensorStats}?startTime=${startTime}&endTime=${endTime}&newStart=${newStart}&newEnd=${newEnd}`)
             .then((data) => {
                 console.log('_poll AllStats:  ', this.state, data[0])
 
-                //this.sensorChart.data.datasets[0].data = data[0]
-                //this.sensorChart.update()
-                
                 this.setState({
-                    ...this.state,
-                    sensorData: data
+                    sensorData: data,
                 })
                 return delay(5000)
             })
@@ -240,20 +185,20 @@ export default class HealthMonitor extends React.Component {
             }),
         5000)
     }
-    
+
     render() {
         const { sensorData, sensorConfig } = this.state
-        console.log("HealthMonitor::render() => ", sensorConfig, sensorData)
-        
+        console.log('HealthMonitor::render() => ', sensorConfig, sensorData)
+
         if (this.pingChart) {
             this.pingChart.data.datasets[0].data = sensorData[0]
             this.pingChart.update()
         }
         if (this.sensorChart) {
-            let updateData = sensorData.reduce((tempData, sensorObj, sensorId) => {
+            const updateData = sensorData.reduce((tempData, sensorObj, sensorId) => {
                 if (sensorObj && sensorId > 0) {
                     tempData[tempData.length] = {
-                        label: `${sensorConfig[parseInt(sensorId)].loc}:  ${sensorConfig[parseInt(sensorId)].type}`,
+                        label: `${sensorConfig[parseInt(sensorId, 10)].loc}:  ${sensorConfig[parseInt(sensorId, 10)].type}`,
                         data: sensorObj,
                         steppedLine: true,
                         pointRadius: 3,
@@ -261,7 +206,7 @@ export default class HealthMonitor extends React.Component {
                 }
                 return tempData
             }, [])
-            
+
             for (let i = 0; i < updateData.length; i++) {
                 if (this.sensorChart.data.datasets[i]) {
                     this.sensorChart.data.datasets[i].data = updateData[i].data

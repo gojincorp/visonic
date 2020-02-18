@@ -170,14 +170,21 @@ appHttps.get('/api/error', (req, res) => {
 })
 
 appHttps.get('/api/allstats', (req, res) => {
-    let { startTime, endTime, newStart, newEnd } = req.query
+    const {
+        startTime,
+        endTime,
+    } = req.query
+    let {
+        newStart,
+        newEnd,
+    } = req.query
     if (!newStart) {
         newEnd = new Date().setMilliseconds(0)
         newStart = newEnd - 432000000 // 432000000 = 5 days ago 
     }
-    newEnd = parseInt(newEnd)
-    newStart = parseInt(newStart)
-    let newStartBuffer = newStart - sensorBuffer
+    newEnd = parseInt(newEnd, 10)
+    newStart = parseInt(newStart, 10)
+    const newStartBuffer = newStart - sensorBuffer
     console.log(`Timings:  start=${startTime}, end=${endTime}, newStart=${newStart}, newEnd=${newEnd}`)
 
     SystemLog.aggregate([
@@ -191,8 +198,8 @@ appHttps.get('/api/allstats', (req, res) => {
         {
             $project: {
                 _id: 0,
-                samples: 1
-            }
+                samples: 1,
+            },
         },
         {
             $unwind: {
@@ -215,68 +222,68 @@ appHttps.get('/api/allstats', (req, res) => {
             $group: {
                 _id: '$samples.dataSet.src',
                 srcData: {
-                    $push: { time: '$samples.time', data: '$samples.dataSet.data'},
+                    $push: {
+                        time: '$samples.time',
+                        data: '$samples.dataSet.data',
+                    },
                 },
             },
-        }
+        },
     ])
         .then(docs => {
-            const allData = docs.reduce((tmpData, { _id, srcData }) => {
+            const allData = docs.reduce((docData, { _id, srcData }) => {
                 let prevTime = newStartBuffer
                 let prevState = null
                 let prevData = null
-                tmpData[_id] = []
+                docData[_id] = []
                 if (_id === 0) {
                 // Checking 'online' status based on 'ping' or '[NOCNG]' message
-                    tmpData[_id] = srcData.reduce((tmpData, { time, data }) => {
-                        if (true || data === 'ping')
-                        {
-                            if (time - prevTime > sensorBuffer) {
-                            // Ping not found within jitter...need to log
-                                tmpData.push({
-                                    x: prevTime + sensorBuffer,
-                                    y: 0,
-                                    data: '',
-                                })
-                                tmpData.push({
-                                    x: time,
-                                    y: 1,
-                                    data: '',
-                                })
-                                prevState = 1
-                            } else if (prevState === null) {
-                                tmpData.push({
-                                    x: time,
-                                    y: 1,
-                                    data: '',
-                                })
-                                tmpData.push({
-                                    x: prevTime + sensorBuffer,
-                                    y: 1,
-                                    data: '',
-                                })
-                                prevState = 1
-                            }
-                            prevTime = time
+                    docData[_id] = srcData.reduce((tmpData, { time }) => {
+                        if (time - prevTime > sensorBuffer) {
+                        // Ping not found within jitter...need to log
+                            tmpData.push({
+                                x: prevTime + sensorBuffer,
+                                y: 0,
+                                data: '',
+                            })
+                            tmpData.push({
+                                x: time,
+                                y: 1,
+                                data: '',
+                            })
+                            prevState = 1
+                        } else if (prevState === null) {
+                            tmpData.push({
+                                x: time,
+                                y: 1,
+                                data: '',
+                            })
+                            tmpData.push({
+                                x: prevTime + sensorBuffer,
+                                y: 1,
+                                data: '',
+                            })
+                            prevState = 1
                         }
+                        prevTime = time
                         return tmpData
-                    },[])
-                    
+                    }, [])
+
                     if (newEnd - prevTime > sensorBuffer) {
-                        tmpData[_id].push({
+                        docData[_id].push({
                             x: newEnd,
                             y: 0,
                             data: '',
                         })
                     } else {
-                        tmpData[_id].push({
+                        docData[_id].push({
                             x: newEnd,
                             y: prevState,
                             data: '',
                         })
                     }
                 } else {
-                    tmpData[_id] = srcData.reduce((tmpData, { time, data }) => {
+                    docData[_id] = srcData.reduce((tmpData, { time, data }) => {
                         if (time > newStart) {
                             if (!tmpData.length) {
                                 prevTime = newStart
@@ -288,29 +295,29 @@ appHttps.get('/api/allstats', (req, res) => {
                                     data: prevData,
                                 })
                             }
-                            if (prevData != data) {
+                            if (prevData !== data) {
                                 tmpData.push({
                                     x: time,
                                     y: (data === 'OK' ? 0 : (data === 'Open' ? 1 : -1)),
-                                    data: data,
+                                    data,
                                 })
                             }
                         }
                         prevTime = time
                         prevData = data
                         return tmpData
-                    },[])
-                    
+                    }, [])
+
                     if (newEnd > prevTime) {
                         prevState = (prevData === 'OK' ? 0 : (prevData === 'Open' ? 1 : -1))
-                        tmpData[_id].push({
+                        docData[_id].push({
                             x: newEnd,
                             y: prevState,
                             data: prevData,
                         })
                     }
                 }
-                return tmpData
+                return docData
             }, [])
             /*
             if (endTime - prevTime > pingJitter) {
@@ -333,12 +340,13 @@ appHttps.get('/api/allstats', (req, res) => {
         })
 })
 appHttps.get('/api/pinglog', (req, res) => {
-    let { startTime, endTime, newStart, newEnd } = req.query
-    newStart = parseInt(newStart)
-    if (!newStart) {
-        newStart = new Date().setMilliseconds(0) - 432000000 // 432000000 = 5 days ago
-    }
-    console.log(`Timings:  start=${startTime}, end=${endTime}, newStart=${newStart}, newEnd=${newEnd}`)
+    let {
+        newStart = (new Date().setMilliseconds(0) - 432000000), // 432000000 = 5 days ago
+        newEnd,
+    } = req.query
+    newStart = parseInt(newStart, 10)
+
+    console.log(`Timings:  newStart=${newStart}, newEnd=${newEnd}`)
 
     SystemLog.aggregate([
         {
@@ -351,8 +359,8 @@ appHttps.get('/api/pinglog', (req, res) => {
         {
             $project: {
                 _id: 0,
-                samples: 1
-            }
+                samples: 1,
+            },
         },
         {
             $unwind: {
@@ -372,7 +380,10 @@ appHttps.get('/api/pinglog', (req, res) => {
             },
         },
         {
-            $match: { 'samples.dataSet.src': 0, 'samples.dataSet.data': 'ping'},
+            $match: {
+                'samples.dataSet.src': 0,
+                'samples.dataSet.data': 'ping',
+            },
         },
         {
             $group: {
@@ -381,7 +392,7 @@ appHttps.get('/api/pinglog', (req, res) => {
                     $push: '$samples.time',
                 },
             },
-        }
+        },
     ])
         .then(docs => {
             let time
@@ -814,36 +825,36 @@ function pollVisonic() {
                 {
                     upsert: false,
                 })
-                .then(results => {
-                    // console.log(`SystemLog.updateOne:  `, results)
-                    if (!results.n) {
-                        SystemLog.updateOne({
-                            serial: sessionData.serial,
-                            created: new Date(sampleDate.toLocaleDateString()),
-                            sampleCnt: { $lt: 10000 },
-                        },
-                        {
-                            $push: {
-                                samples: {
-                                    time: sampleTime,
-                                    dataSet: {
-                                        src: 0,
-                                        data: '[CNG]',
+                    .then(results => {
+                        // console.log(`SystemLog.updateOne:  `, results)
+                        if (!results.n) {
+                            SystemLog.updateOne({
+                                serial: sessionData.serial,
+                                created: new Date(sampleDate.toLocaleDateString()),
+                                sampleCnt: { $lt: 10000 },
+                            },
+                            {
+                                $push: {
+                                    samples: {
+                                        time: sampleTime,
+                                        dataSet: {
+                                            src: 0,
+                                            data: '[CNG]',
+                                        },
                                     },
                                 },
+                                $inc: { sampleCnt: 1 },
+                                $min: { first: sampleDate },
+                                $max: { last: sampleDate },
                             },
-                            $inc: { sampleCnt: 1 },
-                            $min: { first: sampleDate },
-                            $max: { last: sampleDate },
-                        },
-                        {
-                            upsert: true,
-                        })
-                            .then(results => {
-                                // console.log(`SystemLog.updateOne:  `, results)
+                            {
+                                upsert: true,
                             })
-                    }
-                })
+                                .then(results => {
+                                    // console.log(`SystemLog.updateOne:  `, results)
+                                })
+                        }
+                    })
             }
 
             // Track update index
@@ -851,7 +862,7 @@ function pollVisonic() {
 
             let setObj = {}
             let configObj = {}
-            let sensorArr = []
+            const sensorArr = []
             let tempCnt = 0
             if (jsObj.reply.configuration) {
                 setObj = jsObj.reply.configuration[0].sensors.reduce((tempObj, sensor) => {
@@ -869,7 +880,7 @@ function pollVisonic() {
                     tempObj[`sensorId.${zone[0]}.type`] = type[0]
                     tempObj[`sensorId.${zone[0]}.isalarm`] = isalarm[0]
                     tempObj[`sensorId.${zone[0]}.status`] = status[0]
-                    //tempCnt += 4
+                    // tempCnt += 4
                     return tempObj
                 }, configObj)
                 // console.log(`pollVisonic (configObj):  `, configObj)
@@ -919,37 +930,39 @@ function pollVisonic() {
                     $min: { first: sampleDate },
                     $max: { last: sampleDate },
                 },
-                { upsert: false, }
+                {
+                    upsert: false,
+                },
             )
                 .then(results => {
                     console.log(`IB -> PowerLink (SystemLog A):  Successful...`, results)
                     if (!results.n) {
-                        SystemLog.updateOne(
-                                {
-                                    serial: sessionData.serial,
-                                    created: new Date(sampleDate.toLocaleDateString()),
-                                    sampleCnt: { $lt: 10000 },
+                        SystemLog.updateOne({
+                            serial: sessionData.serial,
+                            created: new Date(sampleDate.toLocaleDateString()),
+                            sampleCnt: { $lt: 10000 },
+                        },
+                        {
+                            $setOnInsert: {
+                                serial: sessionData.serial,
+                                account: sessionData.account,
+                            },
+                            $push: {
+                                samples: {
+                                    time: sampleTime,
+                                    dataSet: [...sensorArr],
                                 },
-                                {
-                                    $setOnInsert: {
-                                        serial: sessionData.serial,
-                                        account:  sessionData.account,
-                                    },
-                                    $push: {
-                                        samples: {
-                                            time: sampleTime,
-                                            dataSet: [...sensorArr],
-                                        },
-                                    },
-                                    $inc: { sampleCnt: tempCnt },
-                                    $min: { first: sampleDate },
-                                    $max: { last: sampleDate },
-                                },
-                                { upsert: true, }
-                            )
-                                .then(results => {
-                                    console.log(`IB -> PowerLink (SystemLog B):  Successful...`,  typeof results)
-                                })
+                            },
+                            $inc: { sampleCnt: tempCnt },
+                            $min: { first: sampleDate },
+                            $max: { last: sampleDate },
+                        },
+                        {
+                            upsert: true,
+                        })
+                            .then(results => {
+                                console.log(`IB -> PowerLink (SystemLog B):  Successful...`, typeof results)
+                            })
                     }
                 })
 
@@ -993,7 +1006,7 @@ function pollVisonic() {
 mongoose.connect('mongodb://localhost/visonic', { useUnifiedTopology: true, useNewUrlParser: true })
     .then(dbClient => {
         db = dbClient
-    
+
         // Initialize web server
         const server = https.createServer(options, appHttps)
         // const io = require('socket.io').listen(server)
@@ -1001,7 +1014,7 @@ mongoose.connect('mongodb://localhost/visonic', { useUnifiedTopology: true, useN
         appHttp.listen(8080, () => {
             console.log('App started on port 8080...')
         })
-    
+
         pollVisonic()
     }).catch(err => {
         console.log('ERROR', err)
