@@ -51,6 +51,7 @@ const sessionData = {
 }
 let db
 const pingJitter = 120000 // 2 minutes
+const sensorBuffer = 10000 // 5 seconds
 
 /**
  * MongoDB Schemas
@@ -162,11 +163,31 @@ appHttp.use(bodyParser.xml())
 /**
  * RESTful like API (HTTPS)
  **************************************************************************** */
+appHttps.get('/api/error', (req, res) => {
+    res.status(400).json({
+        message: 'Testing server error...',
+    })
+})
+
 appHttps.get('/api/allstats', (req, res) => {
-    // Hard coded 7 day time period
-    const startTime = new Date().setMilliseconds(0) - 604800000
+    let { startTime, endTime, newStart, newEnd } = req.query
+    if (!newStart) {
+        newEnd = new Date().setMilliseconds(0)
+        newStart = newEnd - 432000000 // 432000000 = 5 days ago 
+    }
+    newEnd = parseInt(newEnd)
+    newStart = parseInt(newStart)
+    let newStartBuffer = newStart - sensorBuffer
+    console.log(`Timings:  start=${startTime}, end=${endTime}, newStart=${newStart}, newEnd=${newEnd}`)
 
     SystemLog.aggregate([
+        {
+            $match: {
+                last: {
+                    $gte: newStartBuffer,
+                },
+            },
+        },
         {
             $project: {
                 _id: 0,
@@ -179,6 +200,173 @@ appHttps.get('/api/allstats', (req, res) => {
             },
         },
         {
+            $match: {
+                'samples.time': {
+                    $gte: newStartBuffer,
+                },
+            },
+        },
+        {
+            $unwind: {
+                path: '$samples.dataSet',
+            },
+        },
+        {
+            $group: {
+                _id: '$samples.dataSet.src',
+                srcData: {
+                    $push: { time: '$samples.time', data: '$samples.dataSet.data'},
+                },
+            },
+        }
+    ])
+        .then(docs => {
+            const allData = docs.reduce((tmpData, { _id, srcData }) => {
+                let prevTime = newStartBuffer
+                let prevState = null
+                let prevData = null
+                tmpData[_id] = []
+                if (_id === 0) {
+                // Checking 'online' status based on 'ping' or '[NOCNG]' message
+                    tmpData[_id] = srcData.reduce((tmpData, { time, data }) => {
+                        if (true || data === 'ping')
+                        {
+                            if (time - prevTime > sensorBuffer) {
+                            // Ping not found within jitter...need to log
+                                tmpData.push({
+                                    x: prevTime + sensorBuffer,
+                                    y: 0,
+                                    data: '',
+                                })
+                                tmpData.push({
+                                    x: time,
+                                    y: 1,
+                                    data: '',
+                                })
+                                prevState = 1
+                            } else if (prevState === null) {
+                                tmpData.push({
+                                    x: time,
+                                    y: 1,
+                                    data: '',
+                                })
+                                tmpData.push({
+                                    x: prevTime + sensorBuffer,
+                                    y: 1,
+                                    data: '',
+                                })
+                                prevState = 1
+                            }
+                            prevTime = time
+                        }
+                        return tmpData
+                    },[])
+                    
+                    if (newEnd - prevTime > sensorBuffer) {
+                        tmpData[_id].push({
+                            x: newEnd,
+                            y: 0,
+                            data: '',
+                        })
+                    } else {
+                        tmpData[_id].push({
+                            x: newEnd,
+                            y: prevState,
+                            data: '',
+                        })
+                    }
+                } else {
+                    tmpData[_id] = srcData.reduce((tmpData, { time, data }) => {
+                        if (time > newStart) {
+                            if (!tmpData.length) {
+                                prevTime = newStart
+                                prevData = (prevData === null ? 'Unknown' : prevData)
+                                prevState = (prevData === 'OK' ? 0 : (prevData === 'Open' ? 1 : -1))
+                                tmpData.push({
+                                    x: prevTime,
+                                    y: prevState,
+                                    data: prevData,
+                                })
+                            }
+                            if (prevData != data) {
+                                tmpData.push({
+                                    x: time,
+                                    y: (data === 'OK' ? 0 : (data === 'Open' ? 1 : -1)),
+                                    data: data,
+                                })
+                            }
+                        }
+                        prevTime = time
+                        prevData = data
+                        return tmpData
+                    },[])
+                    
+                    if (newEnd > prevTime) {
+                        prevState = (prevData === 'OK' ? 0 : (prevData === 'Open' ? 1 : -1))
+                        tmpData[_id].push({
+                            x: newEnd,
+                            y: prevState,
+                            data: prevData,
+                        })
+                    }
+                }
+                return tmpData
+            }, [])
+            /*
+            if (endTime - prevTime > pingJitter) {
+                pingLog.push({
+                    x: endTime,
+                    y: 0,
+                })
+            } else {
+                pingLog.push({
+                    x: endTime,
+                    y: prevState,
+                })
+            }
+            */
+            res.json(allData)
+        })
+        .catch(err => {
+            console.log(`Error:  ${err}`)
+            res.status(500).json({ message: `Internal Server Error: ${err}` })
+        })
+})
+appHttps.get('/api/pinglog', (req, res) => {
+    let { startTime, endTime, newStart, newEnd } = req.query
+    newStart = parseInt(newStart)
+    if (!newStart) {
+        newStart = new Date().setMilliseconds(0) - 432000000 // 432000000 = 5 days ago
+    }
+    console.log(`Timings:  start=${startTime}, end=${endTime}, newStart=${newStart}, newEnd=${newEnd}`)
+
+    SystemLog.aggregate([
+        {
+            $match: {
+                last: {
+                    $gte: newStart,
+                },
+            },
+        },
+        {
+            $project: {
+                _id: 0,
+                samples: 1
+            }
+        },
+        {
+            $unwind: {
+                path: '$samples',
+            },
+        },
+        {
+            $match: {
+                'samples.time': {
+                    $gte: newStart,
+                },
+            },
+        },
+        {
             $unwind: {
                 path: '$samples.dataSet',
             },
@@ -187,16 +375,10 @@ appHttps.get('/api/allstats', (req, res) => {
             $match: { 'samples.dataSet.src': 0, 'samples.dataSet.data': 'ping'},
         },
         {
-            $project: {
-                src: '$samples.dataSet.src',
-                time: '$samples.time',
-            }
-        },
-        {
             $group: {
-                _id: '$src',
+                _id: '$samples.dataSet.src',
                 pingData: {
-                    $push: '$time',
+                    $push: '$samples.time',
                 },
             },
         }
@@ -211,9 +393,9 @@ appHttps.get('/api/allstats', (req, res) => {
                     time = doc.pingData[i]
                     if (!prevTime) {
                     // First sample
-                        if (time - startTime > pingJitter) {
+                        if (time - newStart > pingJitter) {
                             tempLog.push({
-                                x: startTime,
+                                x: newStart,
                                 y: 0,
                             })
                             tempLog.push({
@@ -222,7 +404,7 @@ appHttps.get('/api/allstats', (req, res) => {
                             })
                         } else {
                             tempLog.push({
-                                x: startTime,
+                                x: newStart,
                                 y: 1,
                             })
                             tempLog.push({
@@ -278,126 +460,34 @@ appHttps.get('/api/allstats', (req, res) => {
             res.status(500).json({ message: `Internal Server Error: ${err}` })
         })
 })
-appHttps.get('/api/pinglog', (req, res) => {
-    // Hard coded 7 day time period
-    const startTime = new Date().setMilliseconds(0) - 604800000
-
-    SystemLog.aggregate([
+appHttps.get('/api/sensors', (req, res) => {
+    SystemConfig.aggregate([
         {
             $project: {
                 _id: 0,
-                samples: 1
-            }
-        },
-        {
-            $unwind: {
-                path: '$samples',
+                sensorId: { $objectToArray: '$sensorId' },
             },
         },
         {
             $unwind: {
-                path: '$samples.dataSet',
+                path: '$sensorId',
             },
-        },
-        {
-            $match: { 'samples.dataSet.src': 0, 'samples.dataSet.data': 'ping'},
         },
         {
             $project: {
-                src: '$samples.dataSet.src',
-                time: '$samples.time',
-            }
+                id: { $toInt: '$sensorId.k' },
+                loc: '$sensorId.v.loc',
+                type: '$sensorId.v.type',
+            },
         },
         {
-            $group: {
-                _id: '$src',
-                pingData: {
-                    $push: '$time',
-                },
+            $sort: {
+                id: 1,
             },
-        }
+        },
     ])
         .then(docs => {
-            let time
-            let prevTime = 0
-            let endTime = 0
-            let prevState
-            const pingLog = docs.reduce((tempLog, doc) => {
-                for (let i = 0; i < doc.pingData.length; i++) {
-                    time = doc.pingData[i]
-                    if (!prevTime) {
-                    // First sample
-                        if (time - startTime > pingJitter) {
-                            tempLog.push({
-                                x: startTime,
-                                y: 0,
-                            })
-                            tempLog.push({
-                                x: time,
-                                y: 1,
-                            })
-                        } else {
-                            tempLog.push({
-                                x: startTime,
-                                y: 1,
-                            })
-                            tempLog.push({
-                                x: time,
-                                y: 1,
-                            })
-                        }
-                        prevState = 1
-                        prevTime = time
-                        endTime = time
-                    } else if (prevState) {
-                        if (time - prevTime > pingJitter) {
-                        // Ping not found within jitter...need to log
-                            tempLog.push({
-                                x: prevTime + 60000,
-                                y: 0,
-                            })
-                            tempLog.push({
-                                x: time,
-                                y: 1,
-                            })
-                            prevState = 1
-                        }
-                        prevTime = time
-                        endTime = time
-                    } else {
-                        tempLog.push({
-                            x: time,
-                            y: 1,
-                        })
-                        prevState = 1
-                        prevTime = time
-                        endTime = time
-                    }
-                }
-                return tempLog
-            }, [])
-            if (endTime - prevTime > pingJitter) {
-                pingLog.push({
-                    x: endTime,
-                    y: 0,
-                })
-            } else {
-                pingLog.push({
-                    x: endTime,
-                    y: prevState,
-                })
-            }
-            res.json(pingLog)
-        })
-        .catch(err => {
-            console.log(`Error:  ${err}`)
-            res.status(500).json({ message: `Internal Server Error: ${err}` })
-        })
-})
-appHttps.get('/api/pinglog', (req, res) => {
-    SystemLog.findOne()
-        .then(doc => {
-            res.json(doc)
+            res.json(docs)
         })
         .catch(err => {
             console.log(`Error:  ${err}`)
@@ -699,6 +789,61 @@ function pollVisonic() {
                     })
 
                 return _delay(1000)
+            } else {
+                SystemLog.updateOne({
+                    serial: sessionData.serial,
+                    created: new Date(sampleDate.toLocaleDateString()),
+                    sampleCnt: { $lt: 10000 },
+                    samples: {
+                        $elemMatch: {
+                            time: sampleTime,
+                        },
+                    },
+                },
+                {
+                    $push: {
+                        'samples.$.dataSet': {
+                            src: 0,
+                            data: '[CNG]',
+                        },
+                    },
+                    $inc: { sampleCnt: 1 },
+                    $min: { first: sampleDate },
+                    $max: { last: sampleDate },
+                },
+                {
+                    upsert: false,
+                })
+                .then(results => {
+                    // console.log(`SystemLog.updateOne:  `, results)
+                    if (!results.n) {
+                        SystemLog.updateOne({
+                            serial: sessionData.serial,
+                            created: new Date(sampleDate.toLocaleDateString()),
+                            sampleCnt: { $lt: 10000 },
+                        },
+                        {
+                            $push: {
+                                samples: {
+                                    time: sampleTime,
+                                    dataSet: {
+                                        src: 0,
+                                        data: '[CNG]',
+                                    },
+                                },
+                            },
+                            $inc: { sampleCnt: 1 },
+                            $min: { first: sampleDate },
+                            $max: { last: sampleDate },
+                        },
+                        {
+                            upsert: true,
+                        })
+                            .then(results => {
+                                // console.log(`SystemLog.updateOne:  `, results)
+                            })
+                    }
+                })
             }
 
             // Track update index
@@ -845,18 +990,19 @@ function pollVisonic() {
 /**
  * Connect to mongodb and then start server
  **************************************************************************** */
-mongoose.connect('mongodb://localhost/visonic', { useUnifiedTopology: true, useNewUrlParser: true }).then(dbClient => {
-    db = dbClient
-
-    // Initialize web server
-    const server = https.createServer(options, appHttps)
-    // const io = require('socket.io').listen(server)
-    server.listen(8430, () => console.log('Server started on port 8430...'))
-    appHttp.listen(8080, () => {
-        console.log('App started on port 8080...')
+mongoose.connect('mongodb://localhost/visonic', { useUnifiedTopology: true, useNewUrlParser: true })
+    .then(dbClient => {
+        db = dbClient
+    
+        // Initialize web server
+        const server = https.createServer(options, appHttps)
+        // const io = require('socket.io').listen(server)
+        server.listen(8430, () => console.log('Server started on port 8430...'))
+        appHttp.listen(8080, () => {
+            console.log('App started on port 8080...')
+        })
+    
+        pollVisonic()
+    }).catch(err => {
+        console.log('ERROR', err)
     })
-
-    pollVisonic()
-}).catch(err => {
-    console.log('ERROR', err)
-})
