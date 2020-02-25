@@ -39,19 +39,17 @@ const IssueRow = ({
         completionDate,
         title,
     },
-}) => {
-    return (
-        <tr>
-            <td>{_id}</td>
-            <td>{status}</td>
-            <td>{owner}</td>
-            <td>{created.toDateString()}</td>
-            <td>{effort}</td>
-            <td>{completionDate ? completionDate.toDateString() : ''}</td>
-            <td>{title}</td>
-        </tr>
-    )
-}
+}) => (
+    <tr>
+        <td>{_id}</td>
+        <td>{status}</td>
+        <td>{owner}</td>
+        <td>{created.toDateString()}</td>
+        <td>{effort}</td>
+        <td>{completionDate ? completionDate.toDateString() : ''}</td>
+        <td>{title}</td>
+    </tr>
+)
 
 IssueRow.propTypes = {
     issue: PropTypes.object,
@@ -91,9 +89,8 @@ class IssueTable extends React.Component {
 }
 */
 function IssueTable({ issues }) {
-    const issueRows = issues.map(issue =>
-        <IssueRow key={issue._id} issue={issue} />
-    )
+    const issueRows = issues.map(issue => <IssueRow key={issue._id} issue={issue} />)
+
     return (
         <table className="bordered-table">
             <thead>

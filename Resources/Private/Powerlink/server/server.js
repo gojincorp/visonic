@@ -1,4 +1,5 @@
 import express from 'express'
+import path from 'path'
 import https from 'https'
 import axios from 'axios'
 import { parseStringPromise } from 'xml2js'
@@ -150,6 +151,9 @@ if (process.env.NODE_ENV !== 'production') {
  **************************************************************************** */
 appHttps.use(cors())
 appHttps.use(express.static('Resources/Private/Powerlink/static'))
+appHttps.use('/SensorQuickView', express.static('Resources/Public/js'))
+appHttps.use('/SensorQuickView', express.static('Resources/Private/Powerlink/static'))
+
 // appHttps.use(express.static('Resources/Private/Powerlink/dist'))
 appHttps.use(express.static('Resources/Public/js'))
 appHttps.use(express.static('Resources/Public/src'))
@@ -168,7 +172,7 @@ appHttps.get('/api/error', (req, res) => {
         message: 'Testing server error...',
     })
 })
-
+// let testCnt = 0
 appHttps.get('/api/allstats', (req, res) => {
     const {
         startTime,
@@ -288,7 +292,13 @@ appHttps.get('/api/allstats', (req, res) => {
                             if (!tmpData.length) {
                                 prevTime = newStart
                                 prevData = (prevData === null ? 'Unknown' : prevData)
-                                prevState = (prevData === 'OK' ? 0 : (prevData === 'Open' ? 1 : -1))
+                                if (prevData === 'OK') {
+                                    prevState = 0
+                                } else if (prevData === 'Open') {
+                                    prevState = 1
+                                } else {
+                                    prevState = -1
+                                }
                                 tmpData.push({
                                     x: prevTime,
                                     y: prevState,
@@ -296,9 +306,15 @@ appHttps.get('/api/allstats', (req, res) => {
                                 })
                             }
                             if (prevData !== data) {
+                                let y = -1
+                                if (data === 'OK') {
+                                    y = 0
+                                } else if (data === 'Open') {
+                                    y = 1
+                                }
                                 tmpData.push({
                                     x: time,
-                                    y: (data === 'OK' ? 0 : (data === 'Open' ? 1 : -1)),
+                                    y,
                                     data,
                                 })
                             }
@@ -333,6 +349,13 @@ appHttps.get('/api/allstats', (req, res) => {
             }
             */
             res.json(allData)
+            /* Code for testing server error response...
+            if (testCnt++ % 4 === 0) {
+                res.json(allData)
+            } else {
+                res.status(500).json({ message: 'Testing server error response...' })
+            }
+            */
         })
         .catch(err => {
             console.log(`Error:  ${err}`)
@@ -340,9 +363,11 @@ appHttps.get('/api/allstats', (req, res) => {
         })
 })
 appHttps.get('/api/pinglog', (req, res) => {
+    const {
+        newEnd,
+    } = req.query
     let {
         newStart = (new Date().setMilliseconds(0) - 432000000), // 432000000 = 5 days ago
-        newEnd,
     } = req.query
     newStart = parseInt(newStart, 10)
 
@@ -516,6 +541,15 @@ appHttps.get('/api/issues', (req, res) => {
             res.status(500).json({ message: `Internal Server Error: ${error}` })
         })
 })
+
+//
+// Catch all GET handler
+// ---------------------
+appHttps.get('/*', (req, res) => {
+    console.log('IB  (HTTPS-GET: /*):  ', typeof req, typeof res)
+    res.sendFile(path.join(__dirname, '../static', 'index.html'))
+})
+
 appHttps.post('/api/issues', (req, res) => {
     const newIssue = req.body
     newIssue.created = new Date()
@@ -623,8 +657,8 @@ appHttp.get('/scripts/update.php*', (req, res) => {
 })
 
 //
-// Catch all GET handler
-// ---------------------
+// Catch miscellaneous script messages from Visonic PowerLink module
+// -----------------------------------------------------------------
 appHttp.get('/scripts/*', (req, res) => {
     console.log('Powerlink -> IB  (GET: /scripts/*):  ', typeof req, typeof res)
 })
@@ -648,6 +682,12 @@ appHttp.post('/scripts/*', (req, res) => {
 /**
  * Supporting functions to facilitate Visonic Powerlink polling
  **************************************************************************** */
+/*
+ * Wrapper GET class for axios module
+ * @param {string} url - Full URL
+ * @param {object} query - query string data
+ * @return {object}
+ */
 async function ajaxGet(url, query = {}) {
     try {
         const res = await axios.get(url, { params: query })
@@ -658,6 +698,13 @@ async function ajaxGet(url, query = {}) {
     }
 }
 
+/*
+ * Wrapper POST class for axios module
+ * @param {string} url - Full URL
+ * @param {string} data - query string data
+ * @param {object} config - More Axios config options
+ * @return {object}
+ */
 async function ajaxPost(url, data = null, config = {}) {
     try {
         console.log(`IB -> PowerLink (POST ${url}):  `)
@@ -679,7 +726,7 @@ async function ajaxPost(url, data = null, config = {}) {
     }
 }
 
-/**
+/*
  * Internal delay function that returns a promise
  * 
  * @param {number} ms - milliseconds
@@ -689,7 +736,7 @@ function _delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-/**
+/*
  * Internal polling function
  * 
  * @callback function to use during polling cycle
@@ -711,7 +758,7 @@ function _poll(cb, interval = 5000, retries = Infinity) {
         })
 }
 
-/**
+/*
  * Main polling function
  */
 function pollVisonic() {

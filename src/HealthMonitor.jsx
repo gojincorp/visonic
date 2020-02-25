@@ -2,7 +2,12 @@ import React from 'react'
 import Chart from 'chart.js'
 import moment from 'moment'
 import 'whatwg-fetch'
-import { ajaxGet, delay, poll } from './utils/general'
+import {
+    ajaxGet,
+    delay,
+    poll,
+    polling,
+} from './utils/general'
 import PingLog from './PingLog'
 import SensorStatus from './SensorStatus'
 
@@ -16,9 +21,20 @@ const cmdGetSensorsConfig = `${baseUrl}/api/sensors`
 const cmdGetPingLog = `${baseUrl}/api/pinglog`
 const cmdGetSensorStats = `${baseUrl}/api/allstats`
 
+// const badUrl = 'https://visonic.ideasbeyond.com:8431'
+// const cmdBad = `${badUrl}/api/allstats`
+
 export default class HealthMonitor extends React.Component {
+    /*
+     * HealthMonitor constructor
+     * @param {object} props - Properties received from parent
+     * @return {void}
+     */
     constructor(props) {
         super(props)
+
+        // Initialize default state
+        // ---------------------------------------------------------------------
         this.state = {
             sensorData: [],
             sensorConfig: [],
@@ -26,16 +42,27 @@ export default class HealthMonitor extends React.Component {
             endTime: 0, // currentTime
         }
 
+        // Initialize chartjs configuration
+        // ---------------------------------------------------------------------
         this.pingChartId = 'pingChart'
         this.sensorChartId = 'sensorChart'
         this.pingChart = null
         this.sensorChart = null
 
+        // Explicite binding for 'this'
+        // ---------------------------------------------------------------------
         this.pingStats = this.pingStats.bind(this)
         this.sensorStats = this.sensorStats.bind(this)
     }
 
+    /*
+     * React component lifecycle triggered after the component has mounted into
+     * DOM tree
+     * @return {void}
+     */
     componentDidMount() {
+        // Ping chart setup
+        // ---------------------------------------------------------------------
         const pingLog = document.getElementById(this.pingChartId).getContext('2d')
         this.pingChart = new Chart(pingLog, {
             type: 'line',
@@ -77,6 +104,9 @@ export default class HealthMonitor extends React.Component {
                 responsive: false,
             },
         })
+
+        // Sensor chart setup
+        // ---------------------------------------------------------------------
         const sensorLog = document.getElementById(this.sensorChartId).getContext('2d')
         this.sensorChart = new Chart(sensorLog, {
             type: 'line',
@@ -121,8 +151,9 @@ export default class HealthMonitor extends React.Component {
             },
         })
 
-        // Start polling for ping status
-        // PingLog.pollPingLog()
+        // Initialize general system configuration state.  Also, start polling
+        // for sensor stats
+        // ---------------------------------------------------------------------
         ajaxGet(`${cmdGetSensorsConfig}`)
             .then((data) => {
                 const sensorConfig = data.reduce((tempArr, { id, loc, type }) => {
@@ -130,23 +161,23 @@ export default class HealthMonitor extends React.Component {
                     return tempArr
                 }, [])
 
-                console.log('FOOBAR:  ', sensorConfig)
+                console.log('Visonic System Config:  ', sensorConfig)
 
                 this.setState({
                     sensorConfig,
                 })
 
-                // this.pingStats()
                 this.sensorStats()
             })
     }
 
     /**
-     * Supporting functions to facilitate polling
+     * Start polling for ping status
      ************************************************************************ */
     pingStats() {
         const newEnd = new Date().setMilliseconds(0)
-        const newStart = newEnd - 432000000 // 604800000 = 7 days ago, 432000000 = 5 days ago, 86400000 = 24 hours ago 
+        // 604800000 = 7 days ago, 432000000 = 5 days ago, 86400000 = 24 hours ago 
+        const newStart = newEnd - 432000000
         const { startTime, endTime } = this.state
         poll(() => ajaxGet(`${cmdGetPingLog}?startTime=${startTime}&endTime=${endTime}&newStart=${newStart}&newEnd=${newEnd}`)
             .then((data) => {
@@ -164,31 +195,30 @@ export default class HealthMonitor extends React.Component {
     }
 
     /**
-     * Supporting functions to facilitate polling
+     * Start polling for sensor status
      ************************************************************************ */
     sensorStats() {
         const newEnd = new Date().setMilliseconds(0)
-        const newStart = newEnd - 86400000 // 604800000 = 7 days ago, 432000000 = 5 days ago, 86400000 = 24 hours ago 
+        // 604800000 = 7 days ago, 432000000 = 5 days ago, 86400000 = 24 hours ago 
+        const newStart = newEnd - 86400000
         const { startTime, endTime } = this.state
-        poll(() => ajaxGet(`${cmdGetSensorStats}?startTime=${startTime}&endTime=${endTime}&newStart=${newStart}&newEnd=${newEnd}`)
+        polling(() => ajaxGet(`${cmdGetSensorStats}?startTime=${startTime}&endTime=${endTime}&newStart=${newStart}&newEnd=${newEnd}`)
             .then((data) => {
-                console.log('_poll AllStats:  ', this.state, data[0])
-
+                // console.log('_poll AllStats:  ', this.state, data[0])
                 this.setState({
                     sensorData: data,
                 })
-                return delay(5000)
             })
-            .then(this.sensorStats)
             .catch(err => {
-                console.log(`sensorStats (catch):  ${err.message}`)
+                console.log(`CATCH ERR (sensorStats):  ${err.message}`)
+                throw new Error(err.message)
             }),
-        5000)
+        5000, 5)
     }
 
     render() {
         const { sensorData, sensorConfig } = this.state
-        console.log('HealthMonitor::render() => ', sensorConfig, sensorData)
+        // console.log('HealthMonitor::render() => ', sensorConfig, sensorData)
 
         if (this.pingChart) {
             this.pingChart.data.datasets[0].data = sensorData[0]

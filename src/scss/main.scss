@@ -1,0 +1,14 @@
+@import './globals/customBootstrap';
+@import '../../node_modules/bootstrap/scss/bootstrap';
+
+.testCss1 {
+    @include mixinColor(yellow)
+}
+.testCss2 {
+    @include mixinColor()
+}
+.testCss3 {
+    @include wrapSelector {
+        @include mixinColor(pink)
+    }
+}

@@ -21,6 +21,8 @@
   "author": "Eric Yee",
   "license": "ISC",
   "dependencies": {
+    "@loadable/component": "^5.12.0",
+    "autoprefixer": "^9.7.4",
     "axios": "^0.19.1",
     "body-parser": "^1.19.0",
     "body-parser-xml": "^1.1.0",
@@ -37,7 +39,9 @@
     "prop-types": "^15.7.2",
     "query-string": "^6.9.0",
     "react": "^16.12.0",
+    "react-bootstrap": "^1.0.0-beta.16",
     "react-dom": "^16.12.0",
+    "react-router-dom": "^5.1.2",
     "regenerator-runtime": "^0.13.3",
     "socket.io": "^2.3.0",
     "source-map-support": "^0.5.16",
@@ -50,6 +54,7 @@
   "devDependencies": {
     "@babel/cli": "^7.7.5",
     "@babel/core": "^7.7.5",
+    "@babel/plugin-syntax-dynamic-import": "^7.8.3",
     "@babel/preset-env": "^7.7.6",
     "@babel/preset-react": "^7.7.4",
     "@babel/register": "^7.8.3",
@@ -61,7 +66,11 @@
     "eslint-plugin-jsx-a11y": "^6.2.3",
     "eslint-plugin-react": "^7.17.0",
     "eslint-plugin-react-hooks": "^2.3.0",
+    "node-sass": "^4.13.1",
     "nodemon": "^2.0.2",
+    "postcss-loader": "^3.0.0",
+    "precss": "^4.0.0",
+    "sass-loader": "^8.0.2",
     "style-loader": "^1.1.2",
     "webpack-cli": "^3.3.10",
     "webpack-dev-server": "^3.10.1"

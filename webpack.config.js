@@ -12,6 +12,7 @@ module.exports = {
     },
     output: {
         path: path.join(__dirname, 'Resources/Public/js'),
+        chunkFilename: '[name].app.bundle.js',
         filename: 'app.bundle.js',
     },
     optimization: {
@@ -27,7 +28,7 @@ module.exports = {
             name: true,
             cacheGroups: {
                 vendors: {
-                    test: /[\\/]node_modules[\\/]/,
+                    test: /[\\/]node_modules[\\/](?!react-bootstrap)(.[a-zA-Z0-9.\-_]+)[\\/]/,
                     name: 'vendors',
                     priority: -10,
                 },
@@ -48,16 +49,30 @@ module.exports = {
                         loader: 'babel-loader',
                         options: {
                             presets: ['@babel/preset-react', '@babel/preset-env'],
+                            plugins: ['@babel/plugin-syntax-dynamic-import'],
                         },
                     },
                 ],
             },
             {
-                test: /\.css$/,
-                use: [
-                    'style-loader',
-                    'css-loader',
-                ],
+                test: /\.scss$/,
+                use: [{
+                    loader: 'style-loader',    // Inject CSS to page
+                }, {
+                    loader: 'css-loader',      // Translate CSS into CommonJS modules
+                }, {
+                    loader: 'postcss-loader',  // Run post CSS actions
+                    options: {
+                        plugins() {
+                            return [
+                                require('precss'),
+                                require('autoprefixer'),
+                            ]
+                        },
+                    },
+                }, {
+                    loader: 'sass-loader',      // Compile SASS to CSS
+                }],
             },
         ],
     },

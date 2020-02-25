@@ -1,0 +1,9 @@
+@mixin mixinColor($color: red) {
+    color: $color;
+}
+
+@mixin wrapSelector {
+    body.wrapTestCss & {
+        @content
+    }
+}

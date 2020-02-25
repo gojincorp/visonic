@@ -1,26 +1,16 @@
 import React from 'react'
-import axios from 'axios'
-import Chart from 'chart.js'
-import moment from 'moment'
+import PropTypes from 'prop-types'
 
-moment().format()
+export default function SensorChart({ chartId }) {
+    return (
+        <canvas id={chartId} width={800} height={400} style={{ width: '800px', height: '400px' }} />
+    )
+}
 
-/**
- * Initialize constants
- **************************************************************************** */
-const baseUrl = 'https://visonic.ideasbeyond.com:8430'
-const cmdPingLog = `${baseUrl}/api/allstats`
-let myChart
+SensorChart.propTypes = {
+    chartId: PropTypes.string,
+}
 
-export default class PingLog extends React.Component {
-    constructor() {
-        super()
-    }
-
-    render() {
-        const { chartId } = this.props
-        return (
-            <canvas id={chartId} width={800} height={400} style={{ width: '800px', height: '400px' }} />
-        )
-    }
+SensorChart.defaultProps = {
+    chartId: 'SensorChart',
 }
