@@ -61,7 +61,7 @@ function polling(fn, interval = 5000, retries = Infinity) {
     let retryCnt = retries
     fn()
         .then((data) => {
-            console.log("_poll delay", data)
+            console.log('_poll delay', data)
             return delay(interval)
         })
         .then(() => polling(fn, interval, retries))
@@ -74,6 +74,7 @@ function polling(fn, interval = 5000, retries = Infinity) {
                     .then(() => polling(fn, interval, retries))
                     .catch(retry)
             }
+            console.log('polling Error:  ', err)
         })
 }
 
@@ -88,22 +89,23 @@ function setTimeoutLoop(fn, interval = 5000, retries = Infinity) {
     // console.log('_poll START')
     let retryCnt = retries
     let loopId = null
-    
+
     function repeat() {
         fn()
-        .then(() => {
-            retryCnt = retries
-            loopId = window.setTimeout(repeat, interval)
-        })
-        .catch((err) => {
-            console.log("Catch loop error:  ", err, retryCnt)
-            if (retryCnt-- > 0) {
+            .then(() => {
+                retryCnt = retries
                 loopId = window.setTimeout(repeat, interval)
-            }
-        })
+            })
+            .catch((err) => {
+                if (retryCnt-- > 0) {
+                    loopId = window.setTimeout(repeat, interval)
+                } else {
+                    console.log('setTimeoutLoop Error:  ', err)
+                }
+            })
     }
     repeat()
-    
+
     return () => {
         window.clearInterval(loopId)
     }

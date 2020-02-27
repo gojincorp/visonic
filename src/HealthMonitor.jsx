@@ -5,13 +5,12 @@ import Chart from 'chart.js'
 import moment from 'moment'
 import 'whatwg-fetch'
 
-//Custom Modules
-//------------------------------------------------------------------------------
+// Custom Modules
+// -----------------------------------------------------------------------------
 import {
     ajaxGet,
     delay,
     poll,
-    polling,
     setTimeoutLoop,
 } from './utils/general'
 import PingLog from './PingLog'
@@ -60,15 +59,6 @@ export default class HealthMonitor extends React.Component {
         // ---------------------------------------------------------------------
         this.pingStats = this.pingStats.bind(this)
         this.sensorStats = this.sensorStats.bind(this)
-    }
-    
-    /*
-     * React component lifecycle triggered when the component is about to unmount
-     * and be destroyed.
-     * @return {void}
-     */
-    componentWillUnmount() {
-        this.clearSensorLoop()
     }
 
     /*
@@ -185,6 +175,15 @@ export default class HealthMonitor extends React.Component {
 
                 this.sensorStats()
             })
+    }
+
+    /*
+     * React component lifecycle triggered when the component is about to unmount
+     * and be destroyed.
+     * @return {void}
+     */
+    componentWillUnmount() {
+        this.clearSensorLoop()
     }
 
     /**

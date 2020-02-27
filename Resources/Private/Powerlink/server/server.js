@@ -182,10 +182,6 @@ appHttps.get('/api/error', (req, res) => {
 // -----------------------------------------------------------------------------
 // let testCnt = 0
 appHttps.get('/api/allstats/:param1?/:param2?/:param3?', (req, res) => {
-    const {
-        startTime,
-        endTime,
-    } = req.query
     let {
         newStart,
         newEnd,
@@ -197,7 +193,7 @@ appHttps.get('/api/allstats/:param1?/:param2?/:param3?', (req, res) => {
     newEnd = parseInt(newEnd, 10)
     newStart = parseInt(newStart, 10)
     const newStartBuffer = newStart - sensorBuffer
-    console.log(`Timings:  start=${startTime}, end=${endTime}, newStart=${newStart}, newEnd=${newEnd}`, req.params)
+    // console.log(`Timings:  start=${startTime}, end=${endTime}, newStart=${newStart}, newEnd=${newEnd}`, req.params)
 
     SystemLog.aggregate([
         {
@@ -378,10 +374,6 @@ appHttps.get('/api/sensor-data/:sensor_id', (req, res) => {
     const {
         sensor_id,
     } = req.params
-    const {
-        startTime,
-        endTime,
-    } = req.query
     let {
         newStart,
         newEnd,
@@ -427,8 +419,8 @@ appHttps.get('/api/sensor-data/:sensor_id', (req, res) => {
         },
         {
             $match: {
-                'samples.dataSet.src': parseInt(sensor_id),
-            }
+                'samples.dataSet.src': parseInt(sensor_id, 10),
+            },
         },
         {
             $group: {
@@ -808,8 +800,8 @@ appHttp.get('/scripts/update.php*', (req, res) => {
     {
         upsert: true,
     })
-        .then(results => {
-            console.log('Powerlink -> IB (GET: /scripts/update.php*):  System config...', typeof results)
+        .then((/* results */) => {
+            // console.log('Powerlink -> IB (GET: /scripts/update.php*):  System config...', typeof results)
         })
 
     SystemLog.updateOne({
@@ -837,7 +829,7 @@ appHttp.get('/scripts/update.php*', (req, res) => {
         upsert: false,
     })
         .then(results => {
-            console.log('Powerlink -> IB (GET: /scripts/update.php* A):  System logs...', typeof results)
+            // console.log('Powerlink -> IB (GET: /scripts/update.php* A):  System logs...', typeof results)
             if (!results.n) {
                 SystemLog.updateOne({
                     serial: sessionData.serial,
@@ -864,8 +856,8 @@ appHttp.get('/scripts/update.php*', (req, res) => {
                 {
                     upsert: true,
                 })
-                    .then(results => {
-                        console.log('Powerlink -> IB (GET: /scripts/update.php* B):  System logs...', typeof results)
+                    .then((/* results */) => {
+                        // console.log('Powerlink -> IB (GET: /scripts/update.php* B):  System logs...', typeof results)
                     })
             }
         })
@@ -902,6 +894,7 @@ appHttp.post('/scripts/*', (req, res) => {
  * @param {object} query - query string data
  * @return {object}
  */
+/*
 async function ajaxGet(url, query = {}) {
     try {
         const res = await axios.get(url, { params: query })
@@ -911,6 +904,7 @@ async function ajaxGet(url, query = {}) {
         console.log(`IB -> PowerLink (GET ERR:${url}):  `, err)
     }
 }
+*/
 
 /*
  * Wrapper POST class for axios module
@@ -921,7 +915,7 @@ async function ajaxGet(url, query = {}) {
  */
 async function ajaxPost(url, data = null, config = {}) {
     try {
-        console.log(`IB -> PowerLink (POST ${url}):  `)
+        // console.log(`IB -> PowerLink (POST ${url}):  `)
         const res = await axios.post(
             url,
             data,
@@ -959,11 +953,12 @@ function _delay(ms) {
  */
 function _poll(cb, interval = 5000, retries = Infinity) {
     // console.log('_poll START')
+    let counter = retries
     return Promise.resolve()
         .then(cb)
         .catch(function retry(err) {
             console.log(`_poll ERR (retry):  `, err)
-            if (retries-- > 0) {
+            if (counter-- > 0) {
                 return _delay(interval)
                     .then(cb)
                     .catch(retry)
@@ -1054,87 +1049,85 @@ function pollVisonic() {
                             {
                                 upsert: true,
                             })
-                                .then(results => {
+                                .then((/* results */) => {
                                     // console.log(`SystemLog.updateOne:  `, results)
                                 })
                         }
                     })
 
                 return _delay(1000)
-            } else {
-                SystemLog.updateOne({
-                    serial: sessionData.serial,
-                    created: new Date(sampleDate.toLocaleDateString()),
-                    sampleCnt: { $lt: 10000 },
-                    samples: {
-                        $elemMatch: {
-                            time: sampleTime,
-                        },
+            }
+
+            SystemLog.updateOne({
+                serial: sessionData.serial,
+                created: new Date(sampleDate.toLocaleDateString()),
+                sampleCnt: { $lt: 10000 },
+                samples: {
+                    $elemMatch: {
+                        time: sampleTime,
                     },
                 },
-                {
-                    $push: {
-                        'samples.$.dataSet': {
-                            src: 0,
-                            data: '[CNG]',
-                        },
+            },
+            {
+                $push: {
+                    'samples.$.dataSet': {
+                        src: 0,
+                        data: '[CNG]',
                     },
-                    $inc: { sampleCnt: 1 },
-                    $min: { first: sampleDate },
-                    $max: { last: sampleDate },
                 },
-                {
-                    upsert: false,
-                })
-                    .then(results => {
-                        // console.log(`SystemLog.updateOne:  `, results)
-                        if (!results.n) {
-                            SystemLog.updateOne({
-                                serial: sessionData.serial,
-                                created: new Date(sampleDate.toLocaleDateString()),
-                                sampleCnt: { $lt: 10000 },
-                            },
-                            {
-                                $push: {
-                                    samples: {
-                                        time: sampleTime,
-                                        dataSet: {
-                                            src: 0,
-                                            data: '[CNG]',
-                                        },
+                $inc: { sampleCnt: 1 },
+                $min: { first: sampleDate },
+                $max: { last: sampleDate },
+            },
+            {
+                upsert: false,
+            })
+                .then(results => {
+                    // console.log(`SystemLog.updateOne:  `, results)
+                    if (!results.n) {
+                        SystemLog.updateOne({
+                            serial: sessionData.serial,
+                            created: new Date(sampleDate.toLocaleDateString()),
+                            sampleCnt: { $lt: 10000 },
+                        },
+                        {
+                            $push: {
+                                samples: {
+                                    time: sampleTime,
+                                    dataSet: {
+                                        src: 0,
+                                        data: '[CNG]',
                                     },
                                 },
-                                $inc: { sampleCnt: 1 },
-                                $min: { first: sampleDate },
-                                $max: { last: sampleDate },
                             },
-                            {
-                                upsert: true,
+                            $inc: { sampleCnt: 1 },
+                            $min: { first: sampleDate },
+                            $max: { last: sampleDate },
+                        },
+                        {
+                            upsert: true,
+                        })
+                            .then((/* results */) => {
+                                // console.log(`SystemLog.updateOne:  `, results)
                             })
-                                .then(results => {
-                                    // console.log(`SystemLog.updateOne:  `, results)
-                                })
-                        }
-                    })
-            }
+                    }
+                })
 
             // Track update index
             sessionData.curindex = jsObj.reply.index
 
-            let setObj = {}
             let configObj = {}
-            const sensorArr = []
+            let sensorArr = []
             let tempCnt = 0
             if (jsObj.reply.configuration) {
-                setObj = jsObj.reply.configuration[0].sensors.reduce((tempObj, sensor) => {
-                    tempObj[`samples.${sampleTime}.srcId.${sensor.index[0]}.status`] = (sensor.status ? sensor.status[0] : 'OK')
-                    sensorArr[sensorArr.length] = {
+                sensorArr = jsObj.reply.configuration[0].sensors.reduce((tempArr, sensor) => {
+                    tempArr[tempArr.length] = {
                         src: sensor.index[0],
                         data: sensor.status ? sensor.status[0] : 'OK',
                     }
                     tempCnt++
-                    return tempObj
-                }, setObj)
+                    return tempArr
+                }, sensorArr)
 
                 configObj = jsObj.reply.detectors[0].detector.reduce((tempObj, { zone, loc, type, isalarm, status }) => {
                     tempObj[`sensorId.${zone[0]}.loc`] = loc[0]
@@ -1146,15 +1139,23 @@ function pollVisonic() {
                 }, configObj)
                 // console.log(`pollVisonic (configObj):  `, configObj)
             } else if (jsObj.reply.update) {
-                setObj = jsObj.reply.update[0].sensors.reduce((tempObj, sensor) => {
-                    tempObj[`samples.${sampleTime}.srcId.${sensor.index[0]}.status`] = (sensor.status ? sensor.status[0] : 'OK')
-                    sensorArr[sensorArr.length] = {
+                sensorArr = jsObj.reply.update[0].sensors.reduce((tempArr, sensor) => {
+                    tempArr[tempArr.length] = {
                         src: sensor.index[0],
                         data: sensor.status ? sensor.status[0] : 'OK',
                     }
                     tempCnt++
+                    return tempArr
+                }, sensorArr)
+
+                configObj = jsObj.reply.detectors[0].detector.reduce((tempObj, { zone, loc, type, isalarm, status }) => {
+                    tempObj[`sensorId.${zone[0]}.loc`] = loc[0]
+                    tempObj[`sensorId.${zone[0]}.type`] = type[0]
+                    tempObj[`sensorId.${zone[0]}.isalarm`] = isalarm[0]
+                    tempObj[`sensorId.${zone[0]}.status`] = status[0]
+                    // tempCnt += 4
                     return tempObj
-                }, setObj)
+                }, configObj)
             }
 
             SystemConfig.updateOne({
@@ -1221,8 +1222,8 @@ function pollVisonic() {
                         {
                             upsert: true,
                         })
-                            .then(results => {
-                                console.log(`IB -> PowerLink (SystemLog B):  Successful...`, typeof results)
+                            .then((/* results */) => {
+                                // console.log(`IB -> PowerLink (SystemLog B):  Successful...`, typeof results)
                             })
                     }
                 })
