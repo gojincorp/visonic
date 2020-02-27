@@ -57,10 +57,13 @@ function poll(fn, interval = 5000, retries = Infinity) {
  * @return {Promise} Promise object representing the completion of async callback function
  */
 function polling(fn, interval = 5000, retries = Infinity) {
-    // console.log('_poll START')
+    console.log('_poll START')
     let retryCnt = retries
     fn()
-        .then(() => delay(interval))
+        .then((data) => {
+            console.log("_poll delay", data)
+            return delay(interval)
+        })
         .then(() => polling(fn, interval, retries))
         .catch(function retry(err) {
             // console.log(`CATCH ERR (poll/retry): ${err}`, retryCnt)
@@ -74,9 +77,42 @@ function polling(fn, interval = 5000, retries = Infinity) {
         })
 }
 
+/*
+ * Looping call to setTimeout
+ * @param {function} fn - async callback function
+ * @param {number} [interval = 5000] - interval in milliseconds
+ * @param {number} [retries = Infinity] - number of retries
+ * @return {Promise} Promise object representing the completion of async callback function
+ */
+function setTimeoutLoop(fn, interval = 5000, retries = Infinity) {
+    // console.log('_poll START')
+    let retryCnt = retries
+    let loopId = null
+    
+    function repeat() {
+        fn()
+        .then(() => {
+            retryCnt = retries
+            loopId = window.setTimeout(repeat, interval)
+        })
+        .catch((err) => {
+            console.log("Catch loop error:  ", err, retryCnt)
+            if (retryCnt-- > 0) {
+                loopId = window.setTimeout(repeat, interval)
+            }
+        })
+    }
+    repeat()
+    
+    return () => {
+        window.clearInterval(loopId)
+    }
+}
+
 export {
     ajaxGet,
     delay,
     poll,
     polling,
+    setTimeoutLoop,
 }

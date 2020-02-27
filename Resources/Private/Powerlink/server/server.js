@@ -147,33 +147,41 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 /**
- * Initialize middleware
+ * Initialize middleware for HTTP router
  **************************************************************************** */
-appHttps.use(cors())
-appHttps.use(express.static('Resources/Private/Powerlink/static'))
-appHttps.use('/SensorQuickView', express.static('Resources/Public/js'))
-appHttps.use('/SensorQuickView', express.static('Resources/Private/Powerlink/static'))
-
-// appHttps.use(express.static('Resources/Private/Powerlink/dist'))
-appHttps.use(express.static('Resources/Public/js'))
-appHttps.use(express.static('Resources/Public/src'))
-appHttps.use(express.static('node_modules'))
-appHttps.use(bodyParser.json())
-appHttps.use(bodyParser.xml())
 appHttp.use(cors())
 appHttp.use(bodyParser.json())
 appHttp.use(bodyParser.xml())
 
 /**
+ * Initialize middleware for HTTPS router
+ **************************************************************************** */
+appHttps.use(cors())
+appHttps.use(express.static('Resources/Private/Powerlink/static'))
+appHttps.use('/SensorQuickView', express.static('Resources/Public/js'))
+appHttps.use('/SensorQuickView', express.static('Resources/Private/Powerlink/static'))
+appHttps.use(express.static('Resources/Public/js'))
+appHttps.use(express.static('Resources/Public/src'))
+appHttps.use(express.static('node_modules'))
+appHttps.use(bodyParser.json())
+appHttps.use(bodyParser.xml())
+
+/**
  * RESTful like API (HTTPS)
  **************************************************************************** */
+
+// Static error page test
+// -----------------------------------------------------------------------------
 appHttps.get('/api/error', (req, res) => {
     res.status(400).json({
         message: 'Testing server error...',
     })
 })
+
+// Query for all system statistics
+// -----------------------------------------------------------------------------
 // let testCnt = 0
-appHttps.get('/api/allstats', (req, res) => {
+appHttps.get('/api/allstats/:param1?/:param2?/:param3?', (req, res) => {
     const {
         startTime,
         endTime,
@@ -189,7 +197,7 @@ appHttps.get('/api/allstats', (req, res) => {
     newEnd = parseInt(newEnd, 10)
     newStart = parseInt(newStart, 10)
     const newStartBuffer = newStart - sensorBuffer
-    console.log(`Timings:  start=${startTime}, end=${endTime}, newStart=${newStart}, newEnd=${newEnd}`)
+    console.log(`Timings:  start=${startTime}, end=${endTime}, newStart=${newStart}, newEnd=${newEnd}`, req.params)
 
     SystemLog.aggregate([
         {
@@ -221,6 +229,206 @@ appHttps.get('/api/allstats', (req, res) => {
             $unwind: {
                 path: '$samples.dataSet',
             },
+        },
+        {
+            $group: {
+                _id: '$samples.dataSet.src',
+                srcData: {
+                    $push: {
+                        time: '$samples.time',
+                        data: '$samples.dataSet.data',
+                    },
+                },
+            },
+        },
+    ])
+        .then(docs => {
+            const allData = docs.reduce((docData, { _id, srcData }) => {
+                let prevTime = newStartBuffer
+                let prevState = null
+                let prevData = null
+                docData[_id] = []
+                if (_id === 0) {
+                // Checking 'online' status based on 'ping' or '[NOCNG]' message
+                    docData[_id] = srcData.reduce((tmpData, { time }) => {
+                        if (time - prevTime > sensorBuffer) {
+                        // Ping not found within jitter...need to log
+                            tmpData.push({
+                                x: prevTime + sensorBuffer,
+                                y: 0,
+                                data: '',
+                            })
+                            tmpData.push({
+                                x: time,
+                                y: 1,
+                                data: '',
+                            })
+                            prevState = 1
+                        } else if (prevState === null) {
+                            tmpData.push({
+                                x: time,
+                                y: 1,
+                                data: '',
+                            })
+                            tmpData.push({
+                                x: prevTime + sensorBuffer,
+                                y: 1,
+                                data: '',
+                            })
+                            prevState = 1
+                        }
+                        prevTime = time
+                        return tmpData
+                    }, [])
+
+                    if (newEnd - prevTime > sensorBuffer) {
+                        docData[_id].push({
+                            x: newEnd,
+                            y: 0,
+                            data: '',
+                        })
+                    } else {
+                        docData[_id].push({
+                            x: newEnd,
+                            y: prevState,
+                            data: '',
+                        })
+                    }
+                } else {
+                    docData[_id] = srcData.reduce((tmpData, { time, data }) => {
+                        if (time > newStart) {
+                            if (!tmpData.length) {
+                                prevTime = newStart
+                                prevData = (prevData === null ? 'Unknown' : prevData)
+                                if (prevData === 'OK') {
+                                    prevState = 0
+                                } else if (prevData === 'Open') {
+                                    prevState = 1
+                                } else {
+                                    prevState = -1
+                                }
+                                tmpData.push({
+                                    x: prevTime,
+                                    y: prevState,
+                                    data: prevData,
+                                })
+                            }
+                            if (prevData !== data) {
+                                let y = -1
+                                if (data === 'OK') {
+                                    y = 0
+                                } else if (data === 'Open') {
+                                    y = 1
+                                }
+                                tmpData.push({
+                                    x: time,
+                                    y,
+                                    data,
+                                })
+                            }
+                        }
+                        prevTime = time
+                        prevData = data
+                        return tmpData
+                    }, [])
+
+                    if (newEnd > docData[_id][docData[_id].length - 1].x) {
+                        prevState = (prevData === 'OK' ? 0 : (prevData === 'Open' ? 1 : -1))
+                        docData[_id].push({
+                            x: newEnd,
+                            y: prevState,
+                            data: prevData,
+                        })
+                    }
+                }
+                return docData
+            }, [])
+            /*
+            if (endTime - prevTime > pingJitter) {
+                pingLog.push({
+                    x: endTime,
+                    y: 0,
+                })
+            } else {
+                pingLog.push({
+                    x: endTime,
+                    y: prevState,
+                })
+            }
+            */
+            res.json(allData)
+            /* Code for testing server error response...
+            if (testCnt++ % 4 === 0) {
+                res.json(allData)
+            } else {
+                res.status(500).json({ message: 'Testing server error response...' })
+            }
+            */
+        })
+        .catch(err => {
+            console.log(`Error:  ${err}`)
+            res.status(500).json({ message: `Internal Server Error: ${err}` })
+        })
+})
+
+
+// Query for single sensor statistics
+// -----------------------------------------------------------------------------
+appHttps.get('/api/sensor-data/:sensor_id', (req, res) => {
+    const {
+        sensor_id,
+    } = req.params
+    const {
+        startTime,
+        endTime,
+    } = req.query
+    let {
+        newStart,
+        newEnd,
+    } = req.query
+    if (!newStart) {
+        newEnd = new Date().setMilliseconds(0)
+        newStart = newEnd - 432000000 // 432000000 = 5 days ago 
+    }
+    newEnd = parseInt(newEnd, 10)
+    newStart = parseInt(newStart, 10)
+    const newStartBuffer = newStart - sensorBuffer
+
+    SystemLog.aggregate([
+        {
+            $match: {
+                last: {
+                    $gte: newStartBuffer,
+                },
+            },
+        },
+        {
+            $project: {
+                _id: 0,
+                samples: 1,
+            },
+        },
+        {
+            $unwind: {
+                path: '$samples',
+            },
+        },
+        {
+            $match: {
+                'samples.time': {
+                    $gte: newStartBuffer,
+                },
+            },
+        },
+        {
+            $unwind: {
+                path: '$samples.dataSet',
+            },
+        },
+        {
+            $match: {
+                'samples.dataSet.src': parseInt(sensor_id),
+            }
         },
         {
             $group: {
@@ -362,6 +570,9 @@ appHttps.get('/api/allstats', (req, res) => {
             res.status(500).json({ message: `Internal Server Error: ${err}` })
         })
 })
+
+// Query for ping log
+//-----------------------------------------------------------------------------
 appHttps.get('/api/pinglog', (req, res) => {
     const {
         newEnd,
@@ -496,6 +707,9 @@ appHttps.get('/api/pinglog', (req, res) => {
             res.status(500).json({ message: `Internal Server Error: ${err}` })
         })
 })
+
+// DEPRECATED:  Query for all sensor statistics
+//-----------------------------------------------------------------------------
 appHttps.get('/api/sensors', (req, res) => {
     SystemConfig.aggregate([
         {
@@ -530,6 +744,9 @@ appHttps.get('/api/sensors', (req, res) => {
             res.status(500).json({ message: `Internal Server Error: ${err}` })
         })
 })
+
+// DEPRECATED:  Query for test issues
+//-----------------------------------------------------------------------------
 appHttps.get('/api/issues', (req, res) => {
     db.collection('issues').find().toArray()
         .then(issues => {
@@ -542,14 +759,15 @@ appHttps.get('/api/issues', (req, res) => {
         })
 })
 
-//
 // Catch all GET handler
-// ---------------------
+//-----------------------------------------------------------------------------
 appHttps.get('/*', (req, res) => {
     console.log('IB  (HTTPS-GET: /*):  ', typeof req, typeof res)
     res.sendFile(path.join(__dirname, '../static', 'index.html'))
 })
 
+// DEPRECATED:  Query for test issues
+//-----------------------------------------------------------------------------
 appHttps.post('/api/issues', (req, res) => {
     const newIssue = req.body
     newIssue.created = new Date()
@@ -570,12 +788,11 @@ appHttps.post('/api/issues', (req, res) => {
 })
 
 /**
- * HTTP based RESTful API for handling requests from Powerlink module
+ * RESTful like API (HTTP) for handling requests from PowerLink module
  **************************************************************************** */
 
-//
 // General ping from Powerlink module
-// ----------------------------------
+// -----------------------------------------------------------------------------
 appHttp.get('/scripts/update.php*', (req, res) => {
     const logDate = new Date(new Date().setMilliseconds(0))
     sessionData.serial = req.query.serial
@@ -656,25 +873,22 @@ appHttp.get('/scripts/update.php*', (req, res) => {
     res.send('status=0&ka_time=50&allow=0&\n')
 })
 
-//
 // Catch miscellaneous script messages from Visonic PowerLink module
-// -----------------------------------------------------------------
+// -----------------------------------------------------------------------------
 appHttp.get('/scripts/*', (req, res) => {
     console.log('Powerlink -> IB  (GET: /scripts/*):  ', typeof req, typeof res)
 })
 
-//
 // Notification alert from Powerlink module
-// ----------------------------------
+// -----------------------------------------------------------------------------
 appHttp.post('/scripts/notify.php', (req, res) => {
     console.log('Powerlink -> IB (POST: /scripts/notify.php):  ', req.body.notify.index[0], req.body.notify)
     res.type('application/xml')
     res.send(`<response><index>${req.body.notify.index[0]}</index></response>`)
 })
 
-//
 // Catch all POST handler
-// ---------------------
+// -----------------------------------------------------------------------------
 appHttp.post('/scripts/*', (req, res) => {
     console.log('Powerlink -> IB (POST: /scripts/*):  ', typeof req, typeof res)
 })

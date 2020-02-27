@@ -1,5 +1,5 @@
 // Builtin/3rd Party Modules
-// ----------------------------------------------------------
+// -----------------------------------------------------------------------------
 import 'core-js/stable'                 // Replacement for deprecated @babel-polyfill
 import 'regenerator-runtime/runtime'    // Replacement for deprecated @babel-polyfill
 import $ from 'jquery'
@@ -18,10 +18,10 @@ import {
 } from 'react-router-dom'
 
 // Custom Modules
-// ----------------------------------------------------------
-import HealthMonitor from './HealthMonitor' // Custom module
+//------------------------------------------------------------------------------
+import HealthMonitor from './HealthMonitor'
 /* eslint-disable-next-line */
-import SensorQuickView from './SensorQuickView' // Custom module
+import SensorQuickView from './SensorQuickView'
 
 $(() => {
     const contentNode = $('#contents')[0]

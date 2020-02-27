@@ -1,12 +1,18 @@
+// Builtin/3rd Party Modules
+// -----------------------------------------------------------------------------
 import React from 'react'
 import Chart from 'chart.js'
 import moment from 'moment'
 import 'whatwg-fetch'
+
+//Custom Modules
+//------------------------------------------------------------------------------
 import {
     ajaxGet,
     delay,
     poll,
     polling,
+    setTimeoutLoop,
 } from './utils/general'
 import PingLog from './PingLog'
 import SensorStatus from './SensorStatus'
@@ -48,11 +54,21 @@ export default class HealthMonitor extends React.Component {
         this.sensorChartId = 'sensorChart'
         this.pingChart = null
         this.sensorChart = null
+        this.clearSensorLoop = null
 
         // Explicite binding for 'this'
         // ---------------------------------------------------------------------
         this.pingStats = this.pingStats.bind(this)
         this.sensorStats = this.sensorStats.bind(this)
+    }
+    
+    /*
+     * React component lifecycle triggered when the component is about to unmount
+     * and be destroyed.
+     * @return {void}
+     */
+    componentWillUnmount() {
+        this.clearSensorLoop()
     }
 
     /*
@@ -198,33 +214,42 @@ export default class HealthMonitor extends React.Component {
      * Start polling for sensor status
      ************************************************************************ */
     sensorStats() {
-        const newEnd = new Date().setMilliseconds(0)
-        // 604800000 = 7 days ago, 432000000 = 5 days ago, 86400000 = 24 hours ago 
-        const newStart = newEnd - 86400000
-        const { startTime, endTime } = this.state
-        polling(() => ajaxGet(`${cmdGetSensorStats}?startTime=${startTime}&endTime=${endTime}&newStart=${newStart}&newEnd=${newEnd}`)
-            .then((data) => {
-                // console.log('_poll AllStats:  ', this.state, data[0])
-                this.setState({
-                    sensorData: data,
+        this.clearSensorLoop = setTimeoutLoop(() => {
+            const newEnd = new Date().setMilliseconds(0)
+            // 604800000 = 7 days ago, 432000000 = 5 days ago, 86400000 = 24 hours ago 
+            const newStart = newEnd - 86400000
+            const { startTime, endTime } = this.state
+            return ajaxGet(`${cmdGetSensorStats}?startTime=${startTime}&endTime=${endTime}&newStart=${newStart}&newEnd=${newEnd}`)
+                .then((data) => {
+                    // console.log('_poll AllStats:  ', this.state, data[0])
+                    this.setState({
+                        sensorData: data,
+                    })
                 })
-            })
-            .catch(err => {
-                console.log(`CATCH ERR (sensorStats):  ${err.message}`)
-                throw new Error(err.message)
-            }),
+                .catch(err => {
+                    console.log(`CATCH ERR (sensorStats):  ${err.message}`)
+                    throw new Error(err.message)
+                })
+        },
         5000, 5)
     }
 
     render() {
-        const { sensorData, sensorConfig } = this.state
+        const {
+            state: {
+                sensorData,
+                sensorConfig,
+            },
+            pingChart,
+            sensorChart,
+        } = this
         // console.log('HealthMonitor::render() => ', sensorConfig, sensorData)
 
-        if (this.pingChart) {
-            this.pingChart.data.datasets[0].data = sensorData[0]
-            this.pingChart.update()
+        if (pingChart) {
+            pingChart.data.datasets[0].data = sensorData[0]
+            pingChart.update()
         }
-        if (this.sensorChart) {
+        if (sensorChart) {
             const updateData = sensorData.reduce((tempData, sensorObj, sensorId) => {
                 if (sensorObj && sensorId > 0) {
                     tempData[tempData.length] = {
@@ -238,13 +263,13 @@ export default class HealthMonitor extends React.Component {
             }, [])
 
             for (let i = 0; i < updateData.length; i++) {
-                if (this.sensorChart.data.datasets[i]) {
-                    this.sensorChart.data.datasets[i].data = updateData[i].data
+                if (sensorChart.data.datasets[i]) {
+                    sensorChart.data.datasets[i].data = updateData[i].data
                 } else {
-                    this.sensorChart.data.datasets[i] = updateData[i]
+                    sensorChart.data.datasets[i] = updateData[i]
                 }
             }
-            this.sensorChart.update()
+            sensorChart.update()
         }
         return (
             <div>
