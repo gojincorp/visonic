@@ -63,7 +63,7 @@ export default class HealthMonitor extends React.Component {
 
     /*
      * React component lifecycle triggered after the component has mounted into
-     * DOM tree
+     * DOM tree but before anything is rendered
      * @return {void}
      */
     componentDidMount() {
@@ -179,7 +179,7 @@ export default class HealthMonitor extends React.Component {
 
     /*
      * React component lifecycle triggered when the component is about to unmount
-     * and be destroyed.
+     * from the DOM and be destroyed.
      * @return {void}
      */
     componentWillUnmount() {

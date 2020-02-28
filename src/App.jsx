@@ -22,6 +22,8 @@ import {
 import HealthMonitor from './HealthMonitor'
 /* eslint-disable-next-line */
 import SensorQuickView from './SensorQuickView'
+import D3timeline from './D3timeline'
+import { Toggler } from './utils/hoc'
 
 $(() => {
     const contentNode = $('#contents')[0]
@@ -64,6 +66,27 @@ $(() => {
             </h3>
         )
     }
+    
+    const historicalDates = [
+        {
+            year: 1879,
+            event: "Ski Manufacturing Begins",
+        },
+        {
+            year: 1882,
+            event: "US Ski Club Founded",
+        },
+        {
+            year: 1926,
+            event: "First US Ski Shop Opens",
+        },
+        {
+            year: 1964,
+            event: "Plastic Buckle Boots Available",
+        },
+    ]
+    
+    const D3Test = Toggler(D3timeline)
 
     const RoutingApp = () => (
         <Router>
@@ -79,10 +102,16 @@ $(() => {
                         <li>
                             <Link to="/topics">Topics Test</Link>
                         </li>
+                        <li>
+                            <Link to="/d3timeline">D3 Timeline Test</Link>
+                        </li>
                     </ul>
                 </nav>
                 <hr />
                 <Switch>
+                    <Route path="/d3timeline">
+                        <D3Test name="History" data={historicalDates} />
+                    </Route>
                     <Route exact path="/">
                         <HealthMonitor />
                     </Route>
