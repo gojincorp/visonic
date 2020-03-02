@@ -1,6 +1,7 @@
 // Builtin/3rd Party Modules
 // -----------------------------------------------------------------------------
 import React from 'react'
+import { connect } from 'react-redux'
 import Chart from 'chart.js'
 import moment from 'moment'
 import 'whatwg-fetch'
@@ -15,6 +16,7 @@ import {
 } from './utils/general'
 import PingLog from './PingLog'
 import SensorStatus from './SensorStatus'
+import Dispatcher from './utils/dispatchers'
 
 moment().format()
 
@@ -29,7 +31,7 @@ const cmdGetSensorStats = `${baseUrl}/api/allstats`
 // const badUrl = 'https://visonic.ideasbeyond.com:8431'
 // const cmdBad = `${badUrl}/api/allstats`
 
-export default class HealthMonitor extends React.Component {
+class _HealthMonitor extends React.Component {
     /*
      * HealthMonitor constructor
      * @param {object} props - Properties received from parent
@@ -42,7 +44,6 @@ export default class HealthMonitor extends React.Component {
         // ---------------------------------------------------------------------
         this.state = {
             sensorData: [],
-            sensorConfig: [],
             startTime: 0, // currentTime - 604800000,
             endTime: 0, // currentTime
         }
@@ -162,16 +163,16 @@ export default class HealthMonitor extends React.Component {
         // ---------------------------------------------------------------------
         ajaxGet(`${cmdGetSensorsConfig}`)
             .then((data) => {
+                const {
+                    loadSensorConfig
+                } = this.props
+                
                 const sensorConfig = data.reduce((tempArr, { id, loc, type }) => {
                     tempArr[id] = { loc, type }
                     return tempArr
                 }, [])
 
-                console.log('Visonic System Config:  ', sensorConfig)
-
-                this.setState({
-                    sensorConfig,
-                })
+                loadSensorConfig({ data: sensorConfig })
 
                 this.sensorStats()
             })
@@ -220,7 +221,6 @@ export default class HealthMonitor extends React.Component {
             const { startTime, endTime } = this.state
             return ajaxGet(`${cmdGetSensorStats}?startTime=${startTime}&endTime=${endTime}&newStart=${newStart}&newEnd=${newEnd}`)
                 .then((data) => {
-                    // console.log('_poll AllStats:  ', this.state, data[0])
                     this.setState({
                         sensorData: data,
                     })
@@ -235,14 +235,16 @@ export default class HealthMonitor extends React.Component {
 
     render() {
         const {
+            props: {
+                sensors,
+            },
             state: {
                 sensorData,
-                sensorConfig,
             },
             pingChart,
             sensorChart,
         } = this
-        console.log('HealthMonitor::render() => ', this.state)
+        console.log('HealthMonitor::render() => ', this.state, sensors)
 
         if (pingChart) {
             pingChart.data.datasets[0].data = sensorData[0]
@@ -252,7 +254,7 @@ export default class HealthMonitor extends React.Component {
             const updateData = sensorData.reduce((tempData, sensorObj, sensorId) => {
                 if (sensorObj && sensorId > 0) {
                     tempData[tempData.length] = {
-                        label: `${sensorConfig[parseInt(sensorId, 10)].loc}:  ${sensorConfig[parseInt(sensorId, 10)].type}`,
+                        label: `${sensors[parseInt(sensorId, 10)].loc}:  ${sensors[parseInt(sensorId, 10)].type}`,
                         data: sensorObj,
                         steppedLine: true,
                         pointRadius: 3,
@@ -279,3 +281,14 @@ export default class HealthMonitor extends React.Component {
         )
     }
 }
+
+const mapStateToProps = state => ({
+    sensors: state.sensors
+})
+
+const mapDispatchToProps = dispatch => (Dispatcher(dispatch))
+
+export default connect(
+    mapStateToProps,
+    mapDispatchToProps,
+)(_HealthMonitor)
