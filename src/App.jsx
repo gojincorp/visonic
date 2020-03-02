@@ -8,6 +8,7 @@ import 'bootstrap'
 import './scss/main.scss'
 import React from 'react'
 import { render } from 'react-dom'
+import { Provider } from 'react-redux'
 import {
     BrowserRouter as Router,
     Switch,
@@ -19,10 +20,11 @@ import {
 
 // Custom Modules
 //------------------------------------------------------------------------------
+import store from './data/store'
 import HealthMonitor from './HealthMonitor'
 /* eslint-disable-next-line */
 import SensorQuickView from './SensorQuickView'
-import D3timeline from './D3timeline'
+import { D3timeline } from './D3timeline'
 import { Toggler } from './utils/hoc'
 
 $(() => {
@@ -129,7 +131,12 @@ $(() => {
         </Router>
     )
 
-    render(<RoutingApp />, contentNode)
+    render(
+        <Provider store={store}>
+            <RoutingApp />
+        </Provider>,
+        contentNode
+    )
 })
 
 if (module.hot) {

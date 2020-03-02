@@ -242,7 +242,7 @@ export default class HealthMonitor extends React.Component {
             pingChart,
             sensorChart,
         } = this
-        // console.log('HealthMonitor::render() => ', sensorConfig, sensorData)
+        console.log('HealthMonitor::render() => ', this.state)
 
         if (pingChart) {
             pingChart.data.datasets[0].data = sensorData[0]

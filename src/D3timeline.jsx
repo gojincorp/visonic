@@ -1,5 +1,6 @@
 import * as d3 from 'd3'
 import React from 'react'
+import { connect } from 'react-redux'
 import PropTypes from 'prop-types'
 
 const Canvas = ({ children }) =>
@@ -13,7 +14,7 @@ const TimelineDot = ({ position, txt }) =>
         <text y={115} x={-95} transform="rotate(-45)" style={{fontSize: '10px'}}>{txt}</text>
     </g>
 
-export default class D3timeline extends React.Component {
+class _D3timeline extends React.Component {
     constructor(props) {
         super(props)
         const times = d3.extent(props.data.map(d => d.year))
@@ -25,6 +26,9 @@ export default class D3timeline extends React.Component {
     render() {
         const { data } = this.state
         const { scale } = this
+        const { state } = this.props
+
+        console.log("D3 REDUX STORE:  ", state)
         return (
             <div className="timeline">
                 <h1>{this.props.name} Timeline</h1>
@@ -41,10 +45,22 @@ export default class D3timeline extends React.Component {
     }
 }
 
-D3timeline.propTypes = {
-    data: PropTypes.array
+_D3timeline.propTypes = {
+    data: PropTypes.array,
 }
 
-D3timeline.defaultProps = {
-    data: []
+_D3timeline.defaultProps = {
+    data: [],
 }
+
+const mapStateToProps = state => ({
+    state
+})
+
+const mapDispatchToProps = {
+}
+
+export const D3timeline = connect(
+    mapStateToProps,
+    mapDispatchToProps,
+)(_D3timeline)
