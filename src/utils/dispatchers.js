@@ -18,6 +18,9 @@ export default (dispatcher) => (
         loadSensorConfig(newState) {
             dispatcher(action.loadSensorConfig(newState))
         },
+        loadSensorData(newState) {
+            dispatcher(action.loadSensorData(newState))
+        },
     }
 )
 
@@ -38,5 +41,12 @@ const action = {
             type: C.LOAD_SENSOR_CONFIG,
             ...newState
         }
-    }
+    },
+    loadSensorData(newState) {
+        console.log('DISPATCH (LOAD_SENSOR_DATA):  ', newState)
+        return {
+            type: C.LOAD_SENSOR_DATA,
+            ...newState
+        }
+    },
 }

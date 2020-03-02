@@ -40,14 +40,6 @@ class _HealthMonitor extends React.Component {
     constructor(props) {
         super(props)
 
-        // Initialize default state
-        // ---------------------------------------------------------------------
-        this.state = {
-            sensorData: [],
-            startTime: 0, // currentTime - 604800000,
-            endTime: 0, // currentTime
-        }
-
         // Initialize chartjs configuration
         // ---------------------------------------------------------------------
         this.pingChartId = 'pingChart'
@@ -171,7 +163,7 @@ class _HealthMonitor extends React.Component {
                     tempArr[id] = { loc, type }
                     return tempArr
                 }, [])
-
+                sensorConfig[0] = {} // Placeholder for ping status
                 loadSensorConfig({ data: sensorConfig })
 
                 this.sensorStats()
@@ -194,8 +186,7 @@ class _HealthMonitor extends React.Component {
         const newEnd = new Date().setMilliseconds(0)
         // 604800000 = 7 days ago, 432000000 = 5 days ago, 86400000 = 24 hours ago 
         const newStart = newEnd - 432000000
-        const { startTime, endTime } = this.state
-        poll(() => ajaxGet(`${cmdGetPingLog}?startTime=${startTime}&endTime=${endTime}&newStart=${newStart}&newEnd=${newEnd}`)
+        poll(() => ajaxGet(`${cmdGetPingLog}?newStart=${newStart}&newEnd=${newEnd}`)
             .then((data) => {
                 console.log('pingStats:  ', this.state, data)
 
@@ -218,12 +209,13 @@ class _HealthMonitor extends React.Component {
             const newEnd = new Date().setMilliseconds(0)
             // 604800000 = 7 days ago, 432000000 = 5 days ago, 86400000 = 24 hours ago 
             const newStart = newEnd - 86400000
-            const { startTime, endTime } = this.state
-            return ajaxGet(`${cmdGetSensorStats}?startTime=${startTime}&endTime=${endTime}&newStart=${newStart}&newEnd=${newEnd}`)
+            return ajaxGet(`${cmdGetSensorStats}?newStart=${newStart}&newEnd=${newEnd}`)
                 .then((data) => {
-                    this.setState({
-                        sensorData: data,
-                    })
+                    const {
+                        loadSensorData
+                    } = this.props
+
+                    loadSensorData({ data })
                 })
                 .catch(err => {
                     console.log(`CATCH ERR (sensorStats):  ${err.message}`)
@@ -238,24 +230,21 @@ class _HealthMonitor extends React.Component {
             props: {
                 sensors,
             },
-            state: {
-                sensorData,
-            },
             pingChart,
             sensorChart,
         } = this
-        console.log('HealthMonitor::render() => ', this.state, sensors)
+        console.log('HealthMonitor::render() => ', sensors)
 
         if (pingChart) {
-            pingChart.data.datasets[0].data = sensorData[0]
+            pingChart.data.datasets[0].data = sensors[0].data
             pingChart.update()
         }
         if (sensorChart) {
-            const updateData = sensorData.reduce((tempData, sensorObj, sensorId) => {
+            const updateData = sensors.reduce((tempData, sensorObj, sensorId) => {
                 if (sensorObj && sensorId > 0) {
                     tempData[tempData.length] = {
                         label: `${sensors[parseInt(sensorId, 10)].loc}:  ${sensors[parseInt(sensorId, 10)].type}`,
-                        data: sensorObj,
+                        data: sensorObj.data,
                         steppedLine: true,
                         pointRadius: 3,
                     }
@@ -274,9 +263,9 @@ class _HealthMonitor extends React.Component {
         }
         return (
             <div>
-                <PingLog sensorData={sensorData} chartId={this.pingChartId} />
+                <PingLog chartId={this.pingChartId} />
                 <hr />
-                <SensorStatus sensorData={sensorData} chartId={this.sensorChartId} />
+                <SensorStatus chartId={this.sensorChartId} />
             </div>
         )
     }
