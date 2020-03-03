@@ -3,7 +3,7 @@ export const C = {
     LOAD_SENSOR_DATA: 'LOAD_SENSOR_DATA',
     RELOAD_SENSOR_DATA: 'RELOAD_SENSOR_DATA',
     UPDATE_POWERLINK_DATA: 'UPDATE_POWERLINK_DATA',
-    LOAD_SENSOR_CONFIG: 'LOAD_SENSOR_CONFIG'
+    LOAD_SENSOR_CONFIG: 'LOAD_SENSOR_CONFIG',
 }
 
 export const initAppState = {
@@ -15,8 +15,8 @@ export const initSensor = {
     id: null,
     loc: 'Unknown',
     type: 'Unknown',
-    status:  'Unknown',
-    isalarm:  'Unknown',
+    status: 'Unknown',
+    isalarm: 'Unknown',
     data: [],
 }
 

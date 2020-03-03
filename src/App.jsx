@@ -24,8 +24,8 @@ import store from './data/store'
 import HealthMonitor from './HealthMonitor'
 /* eslint-disable-next-line */
 import SensorQuickView from './SensorQuickView'
-import { D3timeline } from './D3timeline'
-import { Toggler } from './utils/hoc'
+import D3timeline from './D3timeline'
+import Toggler from './utils/hoc'
 
 $(() => {
     const contentNode = $('#contents')[0]
@@ -61,33 +61,35 @@ $(() => {
     }
 
     function Topic() {
-        const { topicId } = useParams()
+        const {
+            topicId,
+        } = useParams()
         return (
             <h3>
                 Requested Topic ID:  { topicId }
             </h3>
         )
     }
-    
+
     const historicalDates = [
         {
             year: 1879,
-            event: "Ski Manufacturing Begins",
+            event: 'Ski Manufacturing Begins',
         },
         {
             year: 1882,
-            event: "US Ski Club Founded",
+            event: 'US Ski Club Founded',
         },
         {
             year: 1926,
-            event: "First US Ski Shop Opens",
+            event: 'First US Ski Shop Opens',
         },
         {
             year: 1964,
-            event: "Plastic Buckle Boots Available",
+            event: 'Plastic Buckle Boots Available',
         },
     ]
-    
+
     const D3Test = Toggler(D3timeline)
 
     const RoutingApp = () => (

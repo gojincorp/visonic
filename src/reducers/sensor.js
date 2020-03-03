@@ -7,7 +7,7 @@ export default (state = initSensor, action) => {
     case C.LOAD_SENSOR_DATA:
         return {
             ...state,
-            data: action.data
+            data: action.data,
         }
     case C.RELOAD_SENSOR_DATA:
         return state

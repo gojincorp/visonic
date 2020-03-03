@@ -74,7 +74,7 @@ function polling(fn, interval = 5000, retries = Infinity) {
                     .then(() => polling(fn, interval, retries))
                     .catch(retry)
             }
-            console.log('polling Error:  ', err)
+            return console.log('polling Error:  ', err)
         })
 }
 

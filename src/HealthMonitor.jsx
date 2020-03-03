@@ -1,6 +1,7 @@
 // Builtin/3rd Party Modules
 // -----------------------------------------------------------------------------
 import React from 'react'
+import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import Chart from 'chart.js'
 import moment from 'moment'
@@ -31,7 +32,7 @@ const cmdGetSensorStats = `${baseUrl}/api/allstats`
 // const badUrl = 'https://visonic.ideasbeyond.com:8431'
 // const cmdBad = `${badUrl}/api/allstats`
 
-class _HealthMonitor extends React.Component {
+class HealthMonitor extends React.Component {
     /*
      * HealthMonitor constructor
      * @param {object} props - Properties received from parent
@@ -156,9 +157,9 @@ class _HealthMonitor extends React.Component {
         ajaxGet(`${cmdGetSensorsConfig}`)
             .then((data) => {
                 const {
-                    loadSensorConfig
+                    loadSensorConfig,
                 } = this.props
-                
+
                 const sensorConfig = data.reduce((tempArr, { id, loc, type }) => {
                     tempArr[id] = { loc, type }
                     return tempArr
@@ -212,7 +213,7 @@ class _HealthMonitor extends React.Component {
             return ajaxGet(`${cmdGetSensorStats}?newStart=${newStart}&newEnd=${newEnd}`)
                 .then((data) => {
                     const {
-                        loadSensorData
+                        loadSensorData,
                     } = this.props
 
                     loadSensorData({ data })
@@ -271,8 +272,14 @@ class _HealthMonitor extends React.Component {
     }
 }
 
+HealthMonitor.propTypes = {
+    sensors: PropTypes.array.isRequired,
+    loadSensorConfig: PropTypes.func.isRequired,
+    loadSensorData: PropTypes.func.isRequired,
+}
+
 const mapStateToProps = state => ({
-    sensors: state.sensors
+    sensors: state.sensors,
 })
 
 const mapDispatchToProps = dispatch => (Dispatcher(dispatch))
@@ -280,4 +287,4 @@ const mapDispatchToProps = dispatch => (Dispatcher(dispatch))
 export default connect(
     mapStateToProps,
     mapDispatchToProps,
-)(_HealthMonitor)
+)(HealthMonitor)
