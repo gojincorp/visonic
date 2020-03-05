@@ -5,21 +5,21 @@ import { C } from '../constants/constants'
  **************************************************************************** */
 const action = {
     updatePowerlinkData(newState) {
-        console.log('DISPATCH (UPDATE_POWERLINK_DATA):  ', newState)
+        //console.log('DISPATCH (UPDATE_POWERLINK_DATA):  ', newState)
         return {
             type: C.UPDATE_POWERLINK_DATA,
             ...newState,
         }
     },
     loadSensorConfig(newState) {
-        console.log('DISPATCH (LOAD_SENSOR_CONFIG):  ', newState)
+        //console.log('DISPATCH (LOAD_SENSOR_CONFIG):  ', newState)
         return {
             type: C.LOAD_SENSOR_CONFIG,
             ...newState,
         }
     },
     loadSensorData(newState) {
-        console.log('DISPATCH (LOAD_SENSOR_DATA):  ', newState)
+        //console.log('DISPATCH (LOAD_SENSOR_DATA):  ', newState)
         return {
             type: C.LOAD_SENSOR_DATA,
             ...newState,
@@ -30,16 +30,21 @@ const action = {
 /**
  * DISPATCHERS pre-bound with action creators
  **************************************************************************** */
-export default (dispatcher) => (
+const dispatcher = (dispatch) => (
     {
         updatePowerlinkData(newState) {
-            dispatcher(action.updatePowerlinkData(newState))
+            dispatch(action.updatePowerlinkData(newState))
         },
         loadSensorConfig(newState) {
-            dispatcher(action.loadSensorConfig(newState))
+            dispatch(action.loadSensorConfig(newState))
         },
         loadSensorData(newState) {
-            dispatcher(action.loadSensorData(newState))
+            dispatch(action.loadSensorData(newState))
         },
     }
 )
+
+export {
+    action,
+    dispatcher,
+}

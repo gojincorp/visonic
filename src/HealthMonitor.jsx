@@ -17,7 +17,7 @@ import {
 } from './utils/general'
 import PingLog from './PingLog'
 import SensorStatus from './SensorStatus'
-import Dispatcher from './utils/dispatchers'
+import { dispatcher } from './utils/dispatchers'
 
 moment().format()
 
@@ -234,7 +234,7 @@ class HealthMonitor extends React.Component {
             pingChart,
             sensorChart,
         } = this
-        console.log('HealthMonitor::render() => ', sensors)
+        // console.log('HealthMonitor::render() => ', sensors)
 
         if (pingChart) {
             pingChart.data.datasets[0].data = sensors[0].data
@@ -282,7 +282,7 @@ const mapStateToProps = state => ({
     sensors: state.sensors,
 })
 
-const mapDispatchToProps = dispatch => (Dispatcher(dispatch))
+const mapDispatchToProps = dispatch => (dispatcher(dispatch))
 
 export default connect(
     mapStateToProps,

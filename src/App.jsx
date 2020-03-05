@@ -20,12 +20,14 @@ import {
 
 // Custom Modules
 //------------------------------------------------------------------------------
-import store from './data/store'
+import storeFactory from './data/store'
 import HealthMonitor from './HealthMonitor'
 /* eslint-disable-next-line */
 import SensorQuickView from './SensorQuickView'
 import D3timeline from './D3timeline'
 import Toggler from './utils/hoc'
+
+const store = storeFactory()
 
 $(() => {
     const contentNode = $('#contents')[0]

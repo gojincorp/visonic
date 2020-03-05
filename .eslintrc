@@ -1,5 +1,6 @@
 {
-	"extends": "airbnb",
+	"extends": ["airbnb","plugin:jest/recommended","plugin:jest/style"],
+	"plugins": ["jest"],
     "rules": {
         "no-console": ["warn"],
         "semi": ["warn", "never"],
@@ -11,6 +12,6 @@
         "no-plusplus": ["off"],
         "no-multi-spaces": ["error", {
             "ignoreEOLComments": true
-        }]
+        }],
     },
 }

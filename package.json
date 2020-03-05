@@ -63,21 +63,39 @@
     "@babel/preset-env": "^7.7.6",
     "@babel/preset-react": "^7.7.4",
     "@babel/register": "^7.8.3",
+    "babel-jest": "^25.1.0",
     "babel-loader": "^8.0.6",
     "css-loader": "^3.4.2",
+    "deep-freeze": "0.0.1",
+    "enzyme": "^3.11.0",
     "eslint": "^6.8.0",
     "eslint-config-airbnb": "^18.0.1",
     "eslint-plugin-import": "^2.20.0",
+    "eslint-plugin-jest": "^23.8.1",
     "eslint-plugin-jsx-a11y": "^6.2.3",
     "eslint-plugin-react": "^7.17.0",
     "eslint-plugin-react-hooks": "^2.3.0",
+    "jest": "^25.1.0",
+    "jest-css-modules": "^2.1.0",
     "node-sass": "^4.13.1",
     "nodemon": "^2.0.2",
     "postcss-loader": "^3.0.0",
     "precss": "^4.0.0",
+    "react-addons-test-utils": "^15.6.2",
     "sass-loader": "^8.0.2",
     "style-loader": "^1.1.2",
     "webpack-cli": "^3.3.10",
     "webpack-dev-server": "^3.10.1"
+  },
+  "jest": {
+    "setupFiles": [
+      "./src/__tests__/global.js"
+    ],
+    "modulePathIgnorePatterns": [
+      "global.js"
+    ],
+    "moduleNameMapper": {
+      "\\.(scss)$": "<rootDir>/node_modules/jest-css-modules"
+    }
   }
 }
