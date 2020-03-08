@@ -15,6 +15,7 @@ import fs from 'fs'                     // File stream
 import 'core-js/stable'                 // Replacement for @babel/polyfill
 import 'regenerator-runtime/runtime'    // Replacement for @babel/polyfill
 import querystring from 'querystring'
+import { _delay, setTimeoutLoop } from './utils/general'
 import Issue from './issues'         // Custom module
 
 moment().format()
@@ -41,6 +42,8 @@ const cmdStatus = `${baseUrl}/web/ajax/alarm.chkstatus.ajax.php`
 // const pgPanel = `${baseUrl}/web/panel.php`
 // const pgFrame = `${baseUrl}/web/frameSetup_ViewLog.php`
 
+let cancelPollingLoop
+let cancelLoginLoop
 let visonicCookie = ''
 let visonicSessionId = ''
 const sessionData = {
@@ -890,24 +893,6 @@ appHttp.post('/scripts/*', (req, res) => {
  * Supporting functions to facilitate Visonic Powerlink polling
  **************************************************************************** */
 /*
- * Wrapper GET class for axios module
- * @param {string} url - Full URL
- * @param {object} query - query string data
- * @return {object}
- */
-/*
-async function ajaxGet(url, query = {}) {
-    try {
-        const res = await axios.get(url, { params: query })
-        const { data } = res
-        console.log(`IB -> PowerLink (GET ${url}):  `, data)
-    } catch (err) {
-        console.log(`IB -> PowerLink (GET ERR:${url}):  `, err)
-    }
-}
-*/
-
-/*
  * Wrapper POST class for axios module
  * @param {string} url - Full URL
  * @param {string} data - query string data
@@ -933,16 +918,6 @@ async function ajaxPost(url, data = null, config = {}) {
         // res.status(500).json({ message: `Internal Server Error:  ${err}` })
         throw err
     }
-}
-
-/*
- * Internal delay function that returns a promise
- * 
- * @param {number} ms - milliseconds
- * @return {promise} Promise object after ms time has passed
- */
-function _delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 /*
@@ -979,10 +954,11 @@ function pollVisonic() {
     const noChangeRegex = /\[NOCNG\]/           // No change
     const sessionIdRegex = /PowerLink=([^;]*)/  // Session ID
 
-    _poll(() => ajaxPost(cmdStatus, querystring.stringify(sessionData), { header: { 'content-type': 'application/x-www-form-urlencoded' } })
+    cancelPollingLoop = setTimeoutLoop(function pollingLoop () { return ajaxPost(cmdStatus, querystring.stringify(sessionData), { header: { 'content-type': 'application/x-www-form-urlencoded' } })
         .then((result) => {
             if (reloginRegex.test(result.data)) {
             // System is not logged on...
+                console.log("FOOBAR:............")
                 throw new Error('Login Failed')
             } else {
             // Proceed to parse XML to JS object
@@ -993,7 +969,7 @@ function pollVisonic() {
             // Must exit if no Powerlink serial number
             if (!sessionData.serial) {
                 console.log('IB -> PowerLink:  Powerlink serial number is missing...')
-                return _delay(1000)
+                throw new Error('IB -> PowerLink:  Powerlink serial number is missing...')
             }
 
             const sampleDate = new Date(new Date().setMilliseconds(0))
@@ -1056,7 +1032,7 @@ function pollVisonic() {
                         }
                     })
 
-                return _delay(1000)
+                return
             }
 
             SystemLog.updateOne({
@@ -1228,15 +1204,12 @@ function pollVisonic() {
                             })
                     }
                 })
-
-            return _delay(1000)
         })
-        .then(pollVisonic)
         .catch(err => {
-            console.log(`pollVisonic (catch::err):  ${err.message}`)
+            //console.log(`pollVisonic (catch::err):  ${err.message}`)
             switch (err.message) {
             case 'Login Failed':
-                _poll(() => ajaxPost(
+                cancelLoginLoop = setTimeoutLoop(function loginLoop () { return ajaxPost(
                     cmdLogin,
                     `user=${visonicUser}&pass=${visonicPwd}`,
                     {
@@ -1250,17 +1223,18 @@ function pollVisonic() {
                         visonicCookie = headers['set-cookie'][0]
                         visonicSessionId = visonicCookie.match(sessionIdRegex)[1]
                         sessionData.sesid = visonicSessionId
-                        return _delay(5000)
-                    })
-                    .then(pollVisonic),
+                        
+                        setTimeout(cancelLoginLoop, 0)
+                    })},
                 5000)
                 break
             default:
-                pollVisonic()
                 break
             }
-        }),
-    5000)
+        })},
+    1000)
+    
+    //cancelVisonicPolling()
 }
 
 /**

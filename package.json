@@ -4,7 +4,8 @@
   "description": "Visonic Monitoring Demo",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
+    "test-silent": "jest --silent --",
     "start-src": "nodemon -w Resources/Private/Powerlink/server Resources/Private/Powerlink/server/server.js",
     "start-dist": "nodemon -w Resources/Private/Powerlink/dist Resources/Private/Powerlink/dist/server.js",
     "start": "nodemon -w Resources/Private/Powerlink/server Resources/Private/Powerlink/server/start_bootstrap.js",
@@ -65,9 +66,11 @@
     "@babel/register": "^7.8.3",
     "babel-jest": "^25.1.0",
     "babel-loader": "^8.0.6",
+    "babel-plugin-transform-export-extensions": "^6.22.0",
     "css-loader": "^3.4.2",
     "deep-freeze": "0.0.1",
     "enzyme": "^3.11.0",
+    "enzyme-adapter-react-16": "^1.15.2",
     "eslint": "^6.8.0",
     "eslint-config-airbnb": "^18.0.1",
     "eslint-plugin-import": "^2.20.0",
@@ -82,17 +85,26 @@
     "postcss-loader": "^3.0.0",
     "precss": "^4.0.0",
     "react-addons-test-utils": "^15.6.2",
+    "react-test-renderer": "^16.13.0",
     "sass-loader": "^8.0.2",
     "style-loader": "^1.1.2",
     "webpack-cli": "^3.3.10",
     "webpack-dev-server": "^3.10.1"
   },
   "jest": {
-    "setupFiles": [
+    "setupFilesAfterEnv": [
       "./src/__tests__/global.js"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.js?(x)",
+      "**/?(*.)+(spec|test).js?(x)"
     ],
     "modulePathIgnorePatterns": [
       "global.js"
+    ],
+    "testEnvironment": "jsdom",
+    "testPathIgnorePatterns": [
+      "\\\\node_modules\\\\"
     ],
     "moduleNameMapper": {
       "\\.(scss)$": "<rootDir>/node_modules/jest-css-modules"

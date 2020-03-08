@@ -17,13 +17,43 @@ async function ajaxGet(url, query = {}) {
         throw new Error(err.message)
     }
 }
+
 /*
- * General delay function
- * @param {number} ms - milleseconds of delay
- * @return {Promise} Promise object representing the completion of a setTimeout() call
+ * Internal delay function that returns a promise
+ * 
+ * @param {number} ms - milliseconds
+ * @return {promise} Promise object after ms time has passed
  */
-function delay(ms) {
+function _delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/*
+ * Wrapper POST class for axios module
+ * @param {string} url - Full URL
+ * @param {string} data - query string data
+ * @param {object} config - More Axios config options
+ * @return {object}
+ */
+async function ajaxPost(url, data = null, config = {}) {
+    try {
+        // console.log(`IB -> PowerLink (POST ${url}):  `)
+        const res = await axios.post(
+            url,
+            data,
+            {
+                ...config,
+                withCredentials: true,
+                ...((visonicCookie ? { headers: { Cookie: visonicCookie } } : null)),
+            },
+        )
+        // const data = res.data
+        return res
+    } catch (err) {
+        console.log(`IB -> PowerLink (POST ERR:${url}):  `, err.message)
+        // res.status(500).json({ message: `Internal Server Error:  ${err}` })
+        throw err
+    }
 }
 
 /*
@@ -83,7 +113,7 @@ function polling(fn, interval = 5000, retries = Infinity) {
  * @param {function} fn - async callback function
  * @param {number} [interval = 5000] - interval in milliseconds
  * @param {number} [retries = Infinity] - number of retries
- * @return {function} Function wrapper for stopping 
+ * @return {Promise} Promise object representing the completion of async callback function
  */
 function setTimeoutLoop(fn, interval = 5000, retries = Infinity) {
     // console.log('_poll START')
@@ -94,26 +124,31 @@ function setTimeoutLoop(fn, interval = 5000, retries = Infinity) {
         fn()
             .then(() => {
                 retryCnt = retries
-                loopId = window.setTimeout(repeat, interval)
+                loopId = setTimeout(repeat, interval)
+                console.log("setTimeoutLoop Start....", fn.name)
             })
             .catch((err) => {
                 if (retryCnt-- > 0) {
-                    loopId = window.setTimeout(repeat, interval)
+                    loopId = setTimeout(repeat, interval)
+                    console.log('setTimeoutLoop Error 1:  ', err)
                 } else {
-                    console.log('setTimeoutLoop Error:  ', err)
+                    console.log('setTimeoutLoop Error 2:  ', err)
                 }
             })
     }
     repeat()
 
     return () => {
-        if (loopId) window.clearInterval(loopId)
+        console.log("CANCEL LOOP:  ", fn.name)
+        if (loopId)
+            clearTimeout(loopId)
     }
 }
 
 export {
     ajaxGet,
-    delay,
+    _delay,
+    ajaxPost,
     poll,
     polling,
     setTimeoutLoop,
