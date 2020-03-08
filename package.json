@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "jest",
-    "test-silent": "jest --silent --",
+    "test-silent": "jest --silent",
+    "test-coverage": "jest --coverage",
     "start-src": "nodemon -w Resources/Private/Powerlink/server Resources/Private/Powerlink/server/server.js",
     "start-dist": "nodemon -w Resources/Private/Powerlink/dist Resources/Private/Powerlink/dist/server.js",
     "start": "nodemon -w Resources/Private/Powerlink/server Resources/Private/Powerlink/server/start_bootstrap.js",
@@ -71,6 +72,7 @@
     "deep-freeze": "0.0.1",
     "enzyme": "^3.11.0",
     "enzyme-adapter-react-16": "^1.15.2",
+    "enzyme-to-json": "^3.4.4",
     "eslint": "^6.8.0",
     "eslint-config-airbnb": "^18.0.1",
     "eslint-plugin-import": "^2.20.0",

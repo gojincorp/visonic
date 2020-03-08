@@ -3,13 +3,21 @@ import storeFactory from '../data/store'
 
 describe('Component Unit Test...', () => {
     let container = null
-    let store
+    const store = {
+        dispatch: jest.fn(),
+        subscribe: jest.fn(),
+        getState: jest.fn(() =>
+            ({})
+        )
+    }
     const MockComponent = () => <div className="mockComponent">Mock Component</div>
     let MockToggler
+    
+    const mountExpect = compose(expect,toJSON,mount)
 
     beforeAll(() => {
         MockToggler = Toggler(MockComponent)
-        store = storeFactory()
+        //store = storeFactory()
     })
 
     beforeEach(() => {
@@ -27,7 +35,6 @@ describe('Component Unit Test...', () => {
         const parentNode = mount(<Provider store={store}><MockToggler /></Provider>)
         expect(parentNode
             .find('button')
-            .length
         ).toHaveLength(1)
     })
 
@@ -35,7 +42,6 @@ describe('Component Unit Test...', () => {
         const parentNode = mount(<Provider store={store}><MockToggler /></Provider>)
         expect(parentNode
             .find('.mockComponent')
-            .length
         ).toHaveLength(1)
     })
 
@@ -43,7 +49,6 @@ describe('Component Unit Test...', () => {
         const parentNode = mount(<Provider store={store}><MockToggler hidden /></Provider>)
         expect(parentNode
             .find('.mockComponent')
-            .length
         ).toHaveLength(0)
     })
 
@@ -61,7 +66,6 @@ describe('Component Unit Test...', () => {
 
         expect(parentNode
             .find('.mockComponent')
-            .length
         ).toHaveLength(0)
     })
 
@@ -73,7 +77,16 @@ describe('Component Unit Test...', () => {
 
         expect(parentNode
             .find('.mockComponent')
-            .length
         ).toHaveLength(1)
+    })
+
+    test('Snapshot test...', () => {
+        const parentNode = mount(<Provider store={store}><MockToggler /></Provider>)
+        const snapshot = parentNode.html()
+        expect(snapshot).toMatchSnapshot()
+    })
+
+    test('Snapshot test as JSON...', () => {
+        mountExpect(<Provider store={store}><MockToggler /></Provider>).toMatchSnapshot()
     })
 })
