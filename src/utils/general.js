@@ -107,7 +107,9 @@ function setTimeoutLoop(fn, interval = 5000, retries = Infinity) {
     repeat()
 
     return () => {
-        if (loopId) window.clearInterval(loopId)
+        console.log("CANCEL LOOP:  ", loopId)
+        if (loopId)
+            clearTimeout(loopId)
     }
 }
 

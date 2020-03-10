@@ -18,6 +18,7 @@ import {
 import PingLog from './PingLog'
 import SensorStatus from './SensorStatus'
 import { dispatcher } from './utils/dispatchers'
+import GraphController from './GraphController'
 
 moment().format()
 
@@ -53,6 +54,7 @@ class HealthMonitor extends React.Component {
         // ---------------------------------------------------------------------
         this.pingStats = this.pingStats.bind(this)
         this.sensorStats = this.sensorStats.bind(this)
+        this._setRange = this._setRange.bind(this)
     }
 
     /*
@@ -201,15 +203,30 @@ class HealthMonitor extends React.Component {
             }),
         5000)
     }
+    
+    _setRange(in_range) {
+        const {
+            setRange
+        } = this.props
+        console.log("_setRange:  ", in_range, this.clearSensorLoop)
+        this.clearSensorLoop()
+        setRange(in_range)
+        setTimeout(this.sensorStats,0)
+    }
 
     /**
      * Start polling for sensor status
      ************************************************************************ */
     sensorStats() {
+        const {
+            props: {
+                range,
+            },
+        } = this
         this.clearSensorLoop = setTimeoutLoop(() => {
             const newEnd = new Date().setMilliseconds(0)
             // 604800000 = 7 days ago, 432000000 = 5 days ago, 86400000 = 24 hours ago 
-            const newStart = newEnd - 86400000
+            const newStart = newEnd - (range * 60 * 60 * 1000)
             return ajaxGet(`${cmdGetSensorStats}?newStart=${newStart}&newEnd=${newEnd}`)
                 .then((data) => {
                     const {
@@ -230,6 +247,7 @@ class HealthMonitor extends React.Component {
         const {
             props: {
                 sensors,
+                range,
             },
             pingChart,
             sensorChart,
@@ -264,6 +282,8 @@ class HealthMonitor extends React.Component {
         }
         return (
             <div>
+                <GraphController range={range} setRange={this._setRange}/>
+                <hr />
                 <PingLog chartId={this.pingChartId} />
                 <hr />
                 <SensorStatus chartId={this.sensorChartId} />
@@ -274,12 +294,14 @@ class HealthMonitor extends React.Component {
 
 HealthMonitor.propTypes = {
     sensors: PropTypes.array.isRequired,
+    range: PropTypes.number.isRequired,
     loadSensorConfig: PropTypes.func.isRequired,
     loadSensorData: PropTypes.func.isRequired,
 }
 
 const mapStateToProps = state => ({
     sensors: state.sensors,
+    range: state.appState.range,
 })
 
 const mapDispatchToProps = dispatch => (dispatcher(dispatch))

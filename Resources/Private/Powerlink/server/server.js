@@ -56,7 +56,7 @@ const sessionData = {
 }
 let db
 const pingJitter = 120000 // 2 minutes
-const sensorBuffer = 10000 // 5 seconds
+const sensorBuffer = 43200000 // 5 seconds
 
 /**
  * MongoDB Schemas

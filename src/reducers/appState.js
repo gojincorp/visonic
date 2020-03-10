@@ -6,6 +6,11 @@ export default (state = initAppState, action) => {
         return state
     case C.RELOAD_SENSOR_DATA:
         return state
+    case C.SET_RANGE:
+        return {
+            ...state,
+            range: parseInt(action.range),
+        }
     default:
         return state
     }

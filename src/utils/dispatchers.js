@@ -25,6 +25,13 @@ const action = {
             ...newState,
         }
     },
+    setRange(newState) {
+        console.log('DISPATCH (SET_RANGE):', newState)
+        return {
+            type: C.SET_RANGE,
+            range: newState,
+        }
+    },
 }
 
 /**
@@ -40,6 +47,9 @@ const dispatcher = (dispatch) => (
         },
         loadSensorData(newState) {
             dispatch(action.loadSensorData(newState))
+        },
+        setRange(newState) {
+            dispatch(action.setRange(newState))
         },
     }
 )

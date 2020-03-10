@@ -4,11 +4,13 @@ export const C = {
     RELOAD_SENSOR_DATA: 'RELOAD_SENSOR_DATA',
     UPDATE_POWERLINK_DATA: 'UPDATE_POWERLINK_DATA',
     LOAD_SENSOR_CONFIG: 'LOAD_SENSOR_CONFIG',
+    SET_RANGE: 'SET_RANGE',
 }
 
 export const initAppState = {
     startTime: 0,
     endTime: 0,
+    range: 6,
 }
 
 export const initSensor = {
